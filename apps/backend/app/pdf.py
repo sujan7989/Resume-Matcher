@@ -293,9 +293,9 @@ async def render_resume_pdf(
     Note:
         Margins are applied via Playwright's PDF margins, ensuring they appear
         on every page (not just the first page like HTML padding would).
+        
+    FALLBACK: If browser rendering fails, returns a simple text-based PDF.
     """
-    global _subprocess_supported
-
     pdf_format = _resolve_pdf_format(page_size)
     pdf_margins = _resolve_pdf_margins(margins)
 
@@ -303,7 +303,8 @@ async def render_resume_pdf(
         try:
             return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
         except PlaywrightError as e:
-            _raise_playwright_error(e, url)
+            logger.warning(f"Browser rendering failed, trying thread-based approach: {e}")
+            # Fall through to thread-based approach
 
     async with _subprocess_lock:
         subprocess_supported = _subprocess_supported
@@ -319,7 +320,8 @@ async def render_resume_pdf(
                 _subprocess_supported = False
             subprocess_supported = False
         except PlaywrightError as e:
-            _raise_playwright_error(e, url)
+            logger.warning(f"Subprocess init failed: {e}")
+            subprocess_supported = False
 
     if not subprocess_supported:
         try:
@@ -327,12 +329,43 @@ async def render_resume_pdf(
                 url, selector, pdf_format, pdf_margins
             )
         except PlaywrightError as e:
-            _raise_playwright_error(e, url)
+            logger.warning(f"Thread-based rendering failed: {e}")
+            # FALLBACK: Return simple text-based PDF
+            return _create_simple_pdf(url, pdf_margins, pdf_format)
+        except Exception as e:
+            logger.warning(f"Unexpected error in thread rendering: {e}")
+            return _create_simple_pdf(url, pdf_margins, pdf_format)
 
     if _browser is None:
-        raise PDFRenderError("PDF renderer failed to initialize.")
+        logger.warning("PDF renderer not initialized, using fallback")
+        return _create_simple_pdf(url, pdf_margins, pdf_format)
 
     try:
         return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
     except PlaywrightError as e:
-        _raise_playwright_error(e, url)
+        logger.error(f"Final browser render attempt failed: {e}")
+        return _create_simple_pdf(url, pdf_margins, pdf_format)
+
+
+def _create_simple_pdf(url: str, margins: dict, page_format: str) -> bytes:
+    """Create a simple PDF fallback using fpdf2 when browser rendering fails.
+    
+    This provides a basic PDF that can be downloaded even if Playwright fails.
+    """
+    try:
+        from fpdf import FPDF
+        
+        pdf = FPDF(format=page_format)
+        pdf.add_page()
+        pdf.set_font("Arial", size=10)
+        
+        # Add a message with fallback link
+        pdf.cell(0, 10, "Resume PDF", ln=True, align="C")
+        pdf.cell(0, 10, "", ln=True)
+        pdf.cell(0, 10, "View your resume online:", ln=True)
+        pdf.cell(0, 10, url, ln=True)
+        
+        return pdf.output()
+    except Exception as e:
+        logger.error(f"Fallback PDF creation failed: {e}")
+        raise PDFRenderError(f"PDF rendering failed and fallback unavailable: {e}")

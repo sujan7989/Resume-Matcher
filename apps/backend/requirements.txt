@@ -13,3 +13,4 @@ pdfminer.six==20260107
 python-docx==1.2.0
 playwright==1.58.0
 python-dotenv==1.2.2
+fpdf2==2.8.1

@@ -9,10 +9,14 @@ import {
   type AccentColor,
   DEFAULT_TEMPLATE_SETTINGS,
 } from '@/lib/types/template-settings';
-import { API_BASE } from '@/lib/api/client';
 import { translate } from '@/lib/i18n/server';
 import { resolveLocale } from '@/lib/i18n/locale';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
+
+// For PDF generation: Playwright opens this page on Vercel which needs to
+// fetch resume data from the backend. Use BACKEND_ORIGIN (server-only env var)
+// to call Render directly — avoids Vercel self-call loops and single-worker deadlocks.
+const PRINT_API_BASE = (process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8000') + '/api/v1';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -77,7 +81,7 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 }
 
 async function fetchResumeData(id: string): Promise<ResumeData> {
-  const res = await fetch(`${API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`, {
+  const res = await fetch(`${PRINT_API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`, {
     cache: 'no-store',
   });
   if (!res.ok) {

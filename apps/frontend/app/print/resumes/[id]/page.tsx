@@ -9,14 +9,10 @@ import {
   type AccentColor,
   DEFAULT_TEMPLATE_SETTINGS,
 } from '@/lib/types/template-settings';
+import { API_BASE } from '@/lib/api/client';
 import { translate } from '@/lib/i18n/server';
 import { resolveLocale } from '@/lib/i18n/locale';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
-
-// For PDF generation: Playwright opens this page on Vercel which needs to
-// fetch resume data from the backend. Use BACKEND_ORIGIN (server-only env var)
-// to call Render directly — avoids Vercel self-call loops and single-worker deadlocks.
-const PRINT_API_BASE = 'https://resume-matcher-gw36.onrender.com/api/v1';
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -81,7 +77,9 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 }
 
 async function fetchResumeData(id: string): Promise<ResumeData> {
-  const res = await fetch(`${PRINT_API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`, {
+  // SSR context: must use Render backend URL directly, not localhost
+  const backendUrl = process.env.BACKEND_ORIGIN || 'https://resume-matcher-gw36.onrender.com';
+  const res = await fetch(`${backendUrl}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`, {
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -134,7 +132,7 @@ function parseMargin(value: string | undefined, defaultValue: number): number {
  * Validate template type
  */
 function parseTemplate(value: string | undefined): TemplateType {
-  // Allow-list mirrors TEMPLATE_OPTIONS in lib/types/template-settings.ts — keep in sync.
+  // Allow-list mirrors TEMPLATE_OPTIONS in lib/types/template-settings.ts ÔÇö keep in sync.
   if (
     value === 'swiss-single' ||
     value === 'swiss-two-column' ||

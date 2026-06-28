@@ -1,5 +1,5 @@
 # Lightweight backend-only Dockerfile for Render free tier
-# Rebuild trigger: 2026-06-28 manual restart
+# Force rebuild: 2026-06-28 18:00 - Groq LLM update
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \

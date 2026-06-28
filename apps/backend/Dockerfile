@@ -35,5 +35,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
+# Reduce litellm memory footprint
+ENV LITELLM_LOCAL_MODEL_COST_MAP="True" \
+    LITELLM_DROP_PARAMS="True" \
+    PYTHONOPTIMIZE="1"
+
 # Single worker, no max-requests (causes crashes on 512MB)
 CMD ["/bin/sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

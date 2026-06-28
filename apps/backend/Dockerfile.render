@@ -1,5 +1,5 @@
 # Lightweight backend-only Dockerfile for Render free tier
-# Force rebuild: 2026-06-28 18:00 - Groq LLM update
+# Force rebuild: 2026-06-28 18:30 - llama-3.3-70b update
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \

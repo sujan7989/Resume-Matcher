@@ -16,7 +16,10 @@ import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 // For PDF generation: Playwright opens this page on Vercel which needs to
 // fetch resume data from the backend. Use BACKEND_ORIGIN (server-only env var)
 // to call Render directly — avoids Vercel self-call loops and single-worker deadlocks.
-const PRINT_API_BASE = (process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8000') + '/api/v1';
+const PRINT_API_BASE =
+  (process.env.BACKEND_ORIGIN ||
+   process.env.NEXT_PUBLIC_BACKEND_ORIGIN ||
+   'https://resume-matcher-gw36.onrender.com') + '/api/v1';
 
 type PageProps = {
   params: Promise<{ id: string }>;

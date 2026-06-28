@@ -1,4 +1,5 @@
 # Lightweight backend-only Dockerfile for Render free tier
+# Rebuild trigger: 2026-06-28 manual restart
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \

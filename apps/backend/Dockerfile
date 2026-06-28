@@ -1,4 +1,4 @@
-# Backend-only Dockerfile for Render free tier
+# Backend-only Dockerfile for Render free tier (512MB RAM)
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
@@ -26,16 +26,15 @@ RUN playwright install chromium && playwright install-deps chromium
 # Copy app source
 COPY app ./app
 COPY pyproject.toml .
-COPY start.sh .
-RUN chmod +x start.sh && sed -i 's/\r$//' start.sh
 
 # Create data directory
 RUN mkdir -p /app/data
 
-EXPOSE 10000
+EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-10000}/api/v1/health || exit 1
+    CMD curl -f http://localhost:8000/api/v1/health || exit 1
 
-# Use shell script so $PORT env var is evaluated at runtime
-CMD ["/bin/sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2"]
+# Single worker to stay within 512MB RAM limit
+# --max-requests recycles worker periodically to prevent memory leaks
+CMD ["/bin/sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --max-requests 100 --max-requests-jitter 20"]

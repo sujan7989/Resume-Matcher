@@ -1195,7 +1195,9 @@ async def improve_resume_endpoint(
 
     try:
         # Extract keywords from job description
+        logger.info(f"Extracting keywords from job {request.job_id}")
         job_keywords = await extract_job_keywords(job["content"])
+        logger.info(f"Extracted keywords: {list(job_keywords.keys())}")
 
         # Generate improved resume in the configured language
         prompt_id = request.prompt_id or _get_default_prompt_id()
@@ -1206,6 +1208,7 @@ async def improve_resume_endpoint(
 
         # Diff-based improvement: generate targeted changes, apply with verification
         if original_resume_data:
+            logger.info(f"Starting diff-based improvement for resume {request.resume_id}")
             diff_result = await generate_resume_diffs(
                 original_resume=resume["content"],
                 job_description=job["content"],
@@ -1241,6 +1244,7 @@ async def improve_resume_endpoint(
             )
         else:
             # Fallback to full-output mode when no structured data available
+            logger.info(f"Using fallback full improvement for resume {request.resume_id}")
             improved_data = await improve_resume(
                 original_resume=resume["content"],
                 job_description=job["content"],
@@ -1350,6 +1354,7 @@ async def improve_resume_endpoint(
         response_warnings.extend(aux_warnings)
 
         # Store the tailored resume with cover letter, outreach message, and title
+        logger.info(f"Creating tailored resume for resume {request.resume_id}")
         tailored_resume = await db.create_resume(
             content=improved_text,
             content_type="json",
@@ -1362,6 +1367,7 @@ async def improve_resume_endpoint(
             outreach_message=outreach_message,
             title=title,
         )
+        logger.info(f"Tailored resume created: {tailored_resume['resume_id']}")
 
         # Store improvement record
         request_id = str(uuid4())
@@ -1409,10 +1415,10 @@ async def improve_resume_endpoint(
         )
 
     except Exception as e:
-        logger.error(f"Resume improvement failed: {e}")
+        logger.error(f"Resume improvement failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="Failed to improve resume. Please try again.",
+            detail=f"Failed to improve resume: {str(e)[:100]}",
         )
 
 

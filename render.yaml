@@ -13,7 +13,7 @@ services:
       - key: LLM_PROVIDER
         value: groq
       - key: LLM_MODEL
-        value: mixtral-8x7b-32768
+        value: llama-3.1-8b-instant
       - key: LLM_API_KEY
         value: gsk_j8qTp2S9pEGCtJx6h9ozWGdyb3FYS3FI6wnt315UsX1Apw67byxmgroq
       - key: FRONTEND_BASE_URL

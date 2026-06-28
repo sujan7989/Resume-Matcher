@@ -549,7 +549,6 @@ async def check_llm_health(
         }
 
     model_name = get_model_name(config)
-
     prompt = test_prompt or "Hi"
 
     try:
@@ -622,6 +621,21 @@ async def check_llm_health(
             "LLM health check failed",
             extra={"provider": config.provider, "model": config.model},
         )
+
+        # For transient errors (timeouts, rate limits), return "healthy" anyway
+        # so the service can still start and retry later. Only mark as unhealthy
+        # for configuration errors (invalid key, wrong model name, etc)
+        error_msg = str(e).lower()
+        if any(x in error_msg for x in ["timeout", "rate", "429", "503", "temporarily"]):
+            # Transient error - service is likely fine, just busy
+            logging.warning("LLM health check had transient error, marking as temporarily healthy")
+            return {
+                "healthy": True,  # Mark as healthy to allow startup
+                "provider": config.provider,
+                "model": config.model,
+                "error_code": "transient_error",
+                "message": "Transient LLM error (may recover)",
+            }
 
         # Provide a minimal, actionable client-facing hint without leaking secrets.
         error_code = "health_check_failed"

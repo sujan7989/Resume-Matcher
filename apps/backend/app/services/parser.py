@@ -161,16 +161,62 @@ async def parse_resume_to_json(markdown_text: str) -> dict[str, Any]:
 
     config = get_llm_config()
     model_name = get_model_name(config)
-    result = await complete_json(
-        prompt=prompt,
-        system_prompt="You are a JSON extraction engine. Output only valid JSON, no explanations.",
-        max_tokens=get_safe_max_tokens(model_name),
-        retries=3,
-    )
+    
+    try:
+        result = await complete_json(
+            prompt=prompt,
+            system_prompt="You are a JSON extraction engine. Output only valid JSON, no explanations.",
+            max_tokens=get_safe_max_tokens(model_name),
+            retries=3,
+        )
 
-    # Patch dates: restore months the LLM may have dropped
-    result = restore_dates_from_markdown(result, markdown_text)
+        # Patch dates: restore months the LLM may have dropped
+        result = restore_dates_from_markdown(result, markdown_text)
 
-    # Validate against schema
-    validated = ResumeData.model_validate(result)
-    return validated.model_dump()
+        # Validate against schema
+        validated = ResumeData.model_validate(result)
+        return validated.model_dump()
+    except Exception as e:
+        # LLM parsing failed - use fallback extraction
+        logger.warning(f"LLM JSON parsing failed: {e}. Using fallback extraction.")
+        from app.schemas import ResumeData as ResumeDataSchema
+        
+        # Create a minimal valid resume structure from markdown
+        lines = markdown_text.split('\n')
+        name = lines[0].strip() if lines else "Unknown"
+        
+        fallback_data = {
+            "personalInfo": {
+                "fullName": name,
+                "email": "",
+                "phone": "",
+                "location": "",
+                "linkedinUrl": "",
+                "githubUrl": "",
+                "portfolioUrl": ""
+            },
+            "summary": "",
+            "workExperience": [],
+            "education": [],
+            "skills": [],
+            "certifications": [],
+            "personalProjects": [],
+            "customSections": {}
+        }
+        
+        # Try to extract basic info from markdown
+        for line in lines:
+            if '@' in line and '.' in line:
+                email = [word for word in line.split() if '@' in word and '.' in word]
+                if email:
+                    fallback_data["personalInfo"]["email"] = email[0]
+            if line.startswith('•') or line.startswith('-'):
+                if not fallback_data["skills"]:
+                    fallback_data["skills"] = []
+                skill = line.lstrip('•- ').strip()
+                if skill and len(skill) < 100:
+                    fallback_data["skills"].append(skill)
+        
+        # Validate against schema
+        validated = ResumeDataSchema.model_validate(fallback_data)
+        return validated.model_dump()

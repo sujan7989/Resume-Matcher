@@ -26,6 +26,8 @@ RUN playwright install chromium && playwright install-deps chromium
 # Copy app source
 COPY app ./app
 COPY pyproject.toml .
+COPY start.sh .
+RUN chmod +x start.sh && sed -i 's/\r$//' start.sh
 
 # Create data directory
 RUN mkdir -p /app/data
@@ -33,6 +35,7 @@ RUN mkdir -p /app/data
 EXPOSE 10000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:10000/api/v1/health || exit 1
+    CMD curl -f http://localhost:${PORT:-10000}/api/v1/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "10000"]
+# Use shell script so $PORT env var is evaluated at runtime
+CMD ["/bin/sh", "/app/start.sh"]

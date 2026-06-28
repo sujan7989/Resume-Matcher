@@ -11,11 +11,11 @@ services:
       - key: PORT
         value: "10000"
       - key: LLM_PROVIDER
-        value: openrouter
+        value: groq
       - key: LLM_MODEL
-        value: deepseek/deepseek-chat
+        value: mixtral-8x7b-32768
       - key: LLM_API_KEY
-        sync: false
+        value: gsk_j8qTp2S9pEGCtJx6h9ozWGdyb3FYS3FI6wnt315UsX1Apw67byxmgroq
       - key: FRONTEND_BASE_URL
         value: https://resume-matcher-zeta.vercel.app
       - key: CORS_ORIGINS

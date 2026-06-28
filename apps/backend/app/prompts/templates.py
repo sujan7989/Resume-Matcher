@@ -261,27 +261,36 @@ Original Resume:
 Output in this JSON format:
 {schema}"""
 
-IMPROVE_RESUME_PROMPT_KEYWORDS = """Enhance this resume with relevant keywords from the job description. Output ONLY the JSON object, no other text.
+IMPROVE_RESUME_PROMPT_KEYWORDS = """Enhance this resume with relevant keywords from the job description. AGGRESSIVELY highlight the primary skills and role match. Output ONLY the JSON object, no other text.
 
 {critical_truthfulness_rules}
 
 IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_language}.
 Do NOT include personalInfo in your output - it will be preserved from the original resume.
 
+CRITICAL INSTRUCTIONS:
+1. The job role is "{job_description}" - ensure the resume reflects this role clearly
+2. PRIORITIZE the first keyword (usually the main language/skill) - mention it in summary, experience, and projects
+3. Reorder projects to show relevant ones first (prioritize projects using the main skill)
+4. Rewrite the freelance/experience section title to match the job title when possible
+5. Add specific methodologies (agile, testing, debugging, version control) to experience descriptions
+6. Make summary explicitly mention the target role ("Custom Software Engineer", etc)
+
 Rules:
 - Strengthen alignment by weaving in relevant keywords where evidence already exists
-- You may rephrase bullet points to include keyword phrasing
+- You may rephrase bullet points to include keyword phrasing and job-specific language
 - Do NOT introduce new skills, tools, or certifications not in the resume
-- Do NOT change role, industry, or seniority level
+- Do NOT change fundamental role or industry unless the job description explicitly requires it
 - For customSections: preserve exact structure, item count, titles, subtitles, and years. If an item's description is an empty array [] in the original, keep it empty []. Do NOT generate descriptions for items that had none.
 - Copy the "years" field values EXACTLY as they appear in the original resume (including any month prefixes like "Jan 2020 - Present"). Do not shorten, reformat, or drop months.
 - If resume is non-technical, keep language non-technical while still aligning keywords
 - Do NOT use em dash ("—") anywhere in the writing/output, even if it exists, remove it
+- REORDER workExperience and personalProjects arrays so most relevant items appear first
 
 Job Description:
 {job_description}
 
-Keywords to emphasize:
+Keywords to emphasize (in priority order):
 {job_keywords}
 
 Original Resume:

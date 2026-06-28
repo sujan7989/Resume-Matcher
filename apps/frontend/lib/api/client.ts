@@ -5,7 +5,10 @@
  */
 
 const DEFAULT_PUBLIC_API_URL = '/';
-const INTERNAL_API_ORIGIN = 'http://127.0.0.1:8000';
+// For SSR on Vercel: self-call via deployed URL so Next.js rewrites proxy to backend
+// For local dev: use backend directly
+const INTERNAL_API_ORIGIN =
+  process.env.NEXT_PUBLIC_VERCEL_URL || 'http://127.0.0.1:8000';
 
 function normalizeApiUrl(value: string): string {
   const trimmed = value.trim();

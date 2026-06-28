@@ -77,16 +77,7 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 }
 
 async function fetchResumeData(id: string): Promise<ResumeData> {
-  // On server-side (SSR for PDF generation), use BACKEND_ORIGIN directly
-  // to avoid deadlock with the single Render worker
-  const backendOrigin = typeof window === 'undefined'
-    ? (process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8000')
-    : '';
-  const url = backendOrigin
-    ? `${backendOrigin}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`
-    : `${API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${API_BASE}/resumes?resume_id=${encodeURIComponent(id)}`, {
     cache: 'no-store',
   });
   if (!res.ok) {

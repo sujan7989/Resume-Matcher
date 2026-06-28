@@ -8,6 +8,8 @@ services:
     healthCheckPath: /api/v1/health
 
     envVars:
+      - key: PORT
+        value: "10000"
       - key: LLM_PROVIDER
         value: openrouter
       - key: LLM_MODEL

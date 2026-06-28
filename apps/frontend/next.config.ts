@@ -1,6 +1,15 @@
 import type { NextConfig } from 'next';
 
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'http://127.0.0.1:8000';
+// CRITICAL: For PDF downloads to work on Vercel, BACKEND_ORIGIN MUST be set
+// to the production backend URL (e.g., https://resume-matcher-gw36.onrender.com)
+// Do NOT use localhost (http://127.0.0.1:8000) in production - Vercel cannot reach it
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'https://resume-matcher-gw36.onrender.com';
+
+// Log backend configuration for debugging
+if (typeof window === 'undefined') {
+  console.log('[next.config.ts] BACKEND_ORIGIN:', BACKEND_ORIGIN);
+  console.log('[next.config.ts] NODE_ENV:', process.env.NODE_ENV);
+}
 
 // Request timeout (ms) for the API proxy. MUST match the backend's
 // REQUEST_TIMEOUT_SECONDS and the client AbortController (lib/api/client.ts) —

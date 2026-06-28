@@ -259,10 +259,21 @@ export async function downloadResumePdf(
   locale?: Locale
 ): Promise<Blob> {
   const url = getResumePdfUrl(resumeId, settings, locale);
+  
+  // Log the full URL for debugging
+  if (typeof window !== 'undefined') {
+    console.log('[downloadResumePdf] Fetching PDF from:', url);
+  }
+  
   const res = await apiFetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    throw new Error(`Failed to download resume (status ${res.status}): ${text}`);
+    const errorMsg = `Failed to download resume (status ${res.status}): ${text}`;
+    if (typeof window !== 'undefined') {
+      console.error('[downloadResumePdf] Error:', errorMsg);
+      console.error('[downloadResumePdf] Response URL:', res.url);
+    }
+    throw new Error(errorMsg);
   }
   return await res.blob();
 }

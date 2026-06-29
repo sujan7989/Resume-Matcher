@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, Index, Integer, String, Text, UniqueConstraint, text
+from sqlalchemy import JSON, Boolean, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 _IS_POSTGRES = bool(os.environ.get("DATABASE_URL", ""))
@@ -17,22 +17,11 @@ class Base(DeclarativeBase):
 
 
 def _resume_table_args() -> tuple:
-    if _IS_POSTGRES:
-        return (
-            Index(
-                "ux_resumes_single_master",
-                "is_master",
-                unique=True,
-                postgresql_where=text("is_master = TRUE"),
-            ),
-        )
+    # Use a simple non-partial index that works with both SQLite and PostgreSQL.
+    # The single-master invariant is enforced primarily by _master_resume_lock
+    # in database.py; this index just provides a fast lookup.
     return (
-        Index(
-            "ux_resumes_single_master",
-            "is_master",
-            unique=True,
-            sqlite_where=text("is_master = 1"),
-        ),
+        Index("ux_resumes_single_master", "is_master"),
     )
 
 

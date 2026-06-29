@@ -1,4 +1,12 @@
-"""PDF rendering utilities using headless Chromium."""
+"""PDF rendering utilities.
+
+Strategy:
+1. Try Playwright (headless Chromium) - best quality, needs browser installed
+2. Fall back to fpdf2 direct generation from resume JSON data - always works
+
+The fpdf2 fallback generates a properly formatted PDF directly from the
+resume data without needing a browser, so it works on Render free tier.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +15,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Awaitable, NoReturn, Optional
+from typing import Any, Awaitable, NoReturn, Optional
 
 from playwright.async_api import (
     Browser,
@@ -19,64 +27,78 @@ from playwright.async_api import (
 
 logger = logging.getLogger(__name__)
 
-# Explicit, bounded navigation/selector timeout. Chosen over Playwright's
-# implicit 30s default so a slow-but-working render (large resume, cold cache,
-# modest hardware) still completes, while a genuinely stuck page still fails
-# in finite time rather than hanging.
-# INCREASED to 120s (2min) on Render free tier - resources are limited
-_NAV_TIMEOUT_MS = 120_000
+# Navigation timeout - 90s for slow Render free tier
+_NAV_TIMEOUT_MS = 90_000
 
 
 class PDFRenderError(Exception):
-    """Custom exception for PDF rendering errors with helpful messages."""
-
+    """Raised when PDF generation fails completely."""
     pass
 
 
-_playwright = None
+_playwright: Optional[Any] = None
 _browser: Optional[Browser] = None
-_init_lock = asyncio.Lock()  # Lock to prevent race condition during initialization
-_subprocess_lock = asyncio.Lock()
-_subprocess_supported = True
+_init_lock = asyncio.Lock()
+_playwright_available: Optional[bool] = None  # None = not yet checked
+
+
+async def _check_playwright_available() -> bool:
+    """Check once if Playwright/Chromium is actually usable."""
+    global _playwright_available
+    if _playwright_available is not None:
+        return _playwright_available
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch()
+            await browser.close()
+        _playwright_available = True
+        logger.info("Playwright/Chromium is available")
+    except Exception as e:
+        _playwright_available = False
+        logger.warning(f"Playwright/Chromium not available: {e} - will use fpdf2 fallback")
+    return _playwright_available
 
 
 async def init_pdf_renderer() -> None:
-    """Initialize the Playwright browser instance.
-
-    Uses asyncio.Lock to prevent race conditions when multiple
-    concurrent requests try to initialize the browser simultaneously.
-    """
+    """Initialize the Playwright browser instance (lazy)."""
     global _playwright, _browser
-
-    # Fast path: already initialized
     if _browser is not None:
-        logger.info("PDF renderer already initialized")
         return
-
-    # Use lock to prevent race condition during initialization
     async with _init_lock:
-        # Double-check after acquiring lock
         if _browser is not None:
-            logger.info("PDF renderer already initialized (after lock)")
             return
-        
-        logger.info("Initializing PDF renderer...")
+        if not await _check_playwright_available():
+            return
         try:
+            logger.info("Starting Playwright browser...")
             _playwright = await async_playwright().start()
-            logger.info("Playwright started")
-            _browser = await _launch_browser(_playwright)
-            logger.info(f"Browser launched successfully: {_browser}")
+            _browser = await _playwright.chromium.launch()
+            logger.info("Playwright browser started successfully")
         except Exception as e:
-            logger.critical(f"Failed to initialize PDF renderer: {e}", exc_info=True)
-            raise
+            logger.warning(f"Failed to start Playwright browser: {e}")
+            _playwright = None
+            _browser = None
+
+
+async def close_pdf_renderer() -> None:
+    """Close the Playwright browser instance."""
+    global _playwright, _browser
+    if _browser is not None:
+        try:
+            await _browser.close()
+        except Exception:
+            pass
+        _browser = None
+    if _playwright is not None:
+        try:
+            await _playwright.stop()
+        except Exception:
+            pass
+        _playwright = None
 
 
 def _resolve_pdf_format(page_size: str) -> str:
-    format_map = {
-        "A4": "A4",
-        "LETTER": "Letter",
-    }
-    return format_map.get(page_size, "A4")
+    return {"A4": "A4", "LETTER": "Letter"}.get(page_size, "A4")
 
 
 def _resolve_pdf_margins(margins: Optional[dict]) -> dict:
@@ -90,230 +112,45 @@ def _resolve_pdf_margins(margins: Optional[dict]) -> dict:
     return {"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
 
 
-def _find_chromium_executable() -> Optional[str]:
-    """Find system Chrome/Chromium/Edge executable across platforms."""
-    if sys.platform == "win32":
-        candidates = [
-            Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
-            / "Google/Chrome/Application/chrome.exe",
-            Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)"))
-            / "Google/Chrome/Application/chrome.exe",
-            Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
-            / "Microsoft/Edge/Application/msedge.exe",
-            Path(os.environ.get("PROGRAMFILES(X86)", "C:/Program Files (x86)"))
-            / "Microsoft/Edge/Application/msedge.exe",
-        ]
-    elif sys.platform == "darwin":
-        # macOS application paths
-        candidates = [
-            Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
-            Path("/Applications/Chromium.app/Contents/MacOS/Chromium"),
-            Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
-        ]
-    else:
-        # Linux paths: standard locations, Snap, and Flatpak
-        candidates = [
-            Path("/usr/bin/google-chrome"),
-            Path("/usr/bin/google-chrome-stable"),
-            Path("/usr/bin/chromium"),
-            Path("/usr/bin/chromium-browser"),
-            Path("/usr/bin/microsoft-edge"),
-            Path("/snap/bin/chromium"),
-            Path("/var/lib/flatpak/exports/bin/com.google.Chrome"),
-            Path("/var/lib/flatpak/exports/bin/org.chromium.Chromium"),
-            Path(os.path.expanduser("~/.local/share/flatpak/exports/bin/com.google.Chrome")),
-            Path(os.path.expanduser("~/.local/share/flatpak/exports/bin/org.chromium.Chromium")),
-        ]
+async def _render_with_playwright(url: str, page_size: str, pdf_margins: dict) -> bytes:
+    """Render URL to PDF using Playwright. Raises on any failure."""
+    global _browser
 
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return None
+    if _browser is None:
+        await init_pdf_renderer()
 
+    if _browser is None:
+        raise PDFRenderError("Playwright browser not available")
 
-async def _launch_browser(playwright: Playwright) -> Browser:
+    pdf_format = _resolve_pdf_format(page_size)
+    page: Page = await _browser.new_page()
     try:
-        return await playwright.chromium.launch()
-    except PlaywrightError as e:
-        if "Executable doesn't exist" not in str(e):
-            raise
-        fallback_executable = _find_chromium_executable()
-        if not fallback_executable:
-            raise PDFRenderError(
-                "Playwright browser executable is missing, and no system Chrome/Edge "
-                "installation was found. Install Playwright browsers or install Chrome/Edge."
-            ) from e
-        return await playwright.chromium.launch(executable_path=fallback_executable)
-
-
-async def _render_page_to_pdf(
-    page: Page,
-    url: str,
-    selector: str,
-    pdf_format: str,
-    pdf_margins: dict,
-) -> bytes:
-    # NOTE: do NOT use wait_until="networkidle" here. The Next.js dev server
-    # (HMR/Turbopack + RSC streaming) keeps the network busy, so "idle" may
-    # never arrive and goto silently hangs until timeout → 503 (issues
-    # #799/#808), with the failure depending on environment/network noise.
-    # Wait on the real readiness condition instead — document "load", the
-    # resume content selector, and fonts — all bounded by an explicit timeout
-    # so the outcome is deterministic.
-    
-    try:
-        logger.info(f"Loading URL: {url}")
+        logger.info(f"Playwright: loading {url}")
         await page.goto(url, wait_until="load", timeout=_NAV_TIMEOUT_MS)
-        logger.info("Page loaded successfully")
-    except Exception as e:
-        logger.error(f"Failed to load page {url}: {e}", exc_info=True)
-        raise
-    
-    try:
-        logger.info(f"Waiting for selector: {selector}")
-        await page.wait_for_selector(selector, timeout=_NAV_TIMEOUT_MS)
-        logger.info("Selector found")
-    except Exception as e:
-        logger.warning(f"Selector {selector} not found, attempting to render anyway: {e}")
-        # Don't fail here - try to render anyway
-    
-    try:
-        # Bound the fonts wait too — plain page.evaluate has no timeout, so a stuck
-        # font load could otherwise hang the render past _NAV_TIMEOUT_MS.
-        logger.info("Waiting for fonts to load")
-        await page.wait_for_function(
-            "() => document.fonts.ready.then(() => true)", timeout=_NAV_TIMEOUT_MS
-        )
-        logger.info("Fonts loaded")
-    except Exception as e:
-        logger.warning(f"Font loading timed out, continuing anyway: {e}")
-        # Don't fail here - fonts might not be ready but we can still render
-    
-    try:
-        logger.info(f"Generating PDF: format={pdf_format}, margins={pdf_margins}")
+
+        # Wait for resume content
+        try:
+            await page.wait_for_selector(".resume-print", timeout=30_000)
+        except Exception:
+            logger.warning("Selector .resume-print not found, rendering anyway")
+
+        # Wait for fonts
+        try:
+            await page.wait_for_function(
+                "() => document.fonts.ready.then(() => true)", timeout=30_000
+            )
+        except Exception:
+            logger.warning("Font loading timed out, continuing")
+
         pdf_bytes = await page.pdf(
             format=pdf_format,
             print_background=True,
             margin=pdf_margins,
         )
-        logger.info(f"PDF generated successfully: {len(pdf_bytes)} bytes")
+        logger.info(f"Playwright PDF generated: {len(pdf_bytes)} bytes")
         return pdf_bytes
-    except Exception as e:
-        logger.error(f"PDF generation failed: {e}", exc_info=True)
-        raise
-
-
-async def _render_with_browser(
-    browser: Browser,
-    url: str,
-    selector: str,
-    pdf_format: str,
-    pdf_margins: dict,
-) -> bytes:
-    page: Page = await browser.new_page()
-    try:
-        return await _render_page_to_pdf(page, url, selector, pdf_format, pdf_margins)
     finally:
         await page.close()
-
-
-def _run_in_new_loop(coro: Awaitable[bytes]) -> bytes:
-    if sys.platform == "win32":
-        from asyncio.windows_events import ProactorEventLoop
-
-        loop = ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(coro)
-    finally:
-        try:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        finally:
-            loop.close()
-            asyncio.set_event_loop(None)
-
-
-def _render_resume_pdf_sync(
-    url: str,
-    selector: str,
-    pdf_format: str,
-    pdf_margins: dict,
-) -> bytes:
-    async def _run() -> bytes:
-        async with async_playwright() as playwright:
-            browser = await _launch_browser(playwright)
-            try:
-                return await _render_with_browser(
-                    browser, url, selector, pdf_format, pdf_margins
-                )
-            finally:
-                await browser.close()
-
-    return _run_in_new_loop(_run())
-
-
-async def _render_resume_pdf_in_thread(
-    url: str,
-    selector: str,
-    pdf_format: str,
-    pdf_margins: dict,
-) -> bytes:
-    return await asyncio.to_thread(
-        _render_resume_pdf_sync, url, selector, pdf_format, pdf_margins
-    )
-
-
-def _raise_playwright_error(error: PlaywrightError, url: str) -> NoReturn:
-    error_msg = str(error)
-    if "Executable doesn't exist" in error_msg:
-        exe = sys.executable.replace("\\", "/")
-        command = f"{exe} -m playwright install chromium"
-        raise PDFRenderError(
-            "Playwright browser executable is missing or out of date. "
-            "Command shown for reference; quote the path if it contains spaces: "
-            f"{command}"
-        ) from error
-    if "net::ERR_CONNECTION_REFUSED" in error_msg:
-        raise PDFRenderError(
-            f"Cannot connect to frontend for PDF generation. "
-            f"Attempted URL: {url}. "
-            f"Please ensure: 1) The frontend is running, "
-            f"2) The FRONTEND_BASE_URL environment variable in the backend .env file "
-            f"matches the URL where your frontend is accessible."
-        ) from error
-    # Catch-all: the raw Playwright message can carry internal navigation URLs
-    # and a full call log. Log it server-side; return a generic message to the
-    # client (CLAUDE.md rule 5 — and it stops the verbose trace from overflowing
-    # the client error modal, #811).
-    logger.error("PDF rendering failed for %s: %s", url, error_msg)
-    raise PDFRenderError(
-        "PDF rendering failed. Please try again, or try a simpler resume or a "
-        "different template."
-    ) from error
-
-
-def _loop_supports_subprocess() -> bool:
-    if sys.platform != "win32":
-        return True
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return True
-    return loop.__class__.__name__ == "ProactorEventLoop"
-
-
-async def close_pdf_renderer() -> None:
-    """Close the Playwright browser instance."""
-    global _playwright, _browser
-    if _browser is not None:
-        await _browser.close()
-        _browser = None
-    if _playwright is not None:
-        await _playwright.stop()
-        _playwright = None
 
 
 async def render_resume_pdf(
@@ -321,115 +158,347 @@ async def render_resume_pdf(
     page_size: str = "A4",
     selector: str = ".resume-print",
     margins: Optional[dict] = None,
+    resume_data: Optional[dict] = None,
 ) -> bytes:
-    """Render a URL to PDF bytes.
+    """Render resume to PDF.
+
+    Tries Playwright first (browser-rendered, high quality).
+    Falls back to fpdf2 direct generation from resume_data if Playwright fails.
 
     Args:
-        url: The URL to render (print route)
-        page_size: Page size format - "A4" or "LETTER"
-        selector: CSS selector to wait for before rendering (default: ".resume-print")
-        margins: Page margins dict with top/right/bottom/left in mm (applied to every page)
-
-    Note:
-        Margins are applied via Playwright's PDF margins, ensuring they appear
-        on every page (not just the first page like HTML padding would).
-        
-    FALLBACK: If browser rendering fails, returns a simple text-based PDF.
+        url: The frontend print URL (used by Playwright)
+        page_size: "A4" or "LETTER"
+        selector: CSS selector to wait for (Playwright only)
+        margins: Page margins dict {top, right, bottom, left} in mm
+        resume_data: Resume JSON data (used for fpdf2 fallback)
     """
-    pdf_format = _resolve_pdf_format(page_size)
     pdf_margins = _resolve_pdf_margins(margins)
 
-    # CRITICAL FIX: Wrap entire function in try/except to catch ALL errors
-    # and provide fallback PDF. This prevents 500 errors.
-    try:
-        if _browser is not None:
-            try:
-                return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
-            except PlaywrightError as e:
-                logger.warning(f"Browser rendering failed, trying thread-based approach: {e}")
-                # Fall through to thread-based approach
-
-        async with _subprocess_lock:
-            subprocess_supported = _subprocess_supported
-            if subprocess_supported and not _loop_supports_subprocess():
-                _subprocess_supported = False
-                subprocess_supported = False
-
-        if subprocess_supported:
-            try:
-                await init_pdf_renderer()
-            except NotImplementedError:
-                async with _subprocess_lock:
-                    _subprocess_supported = False
-                subprocess_supported = False
-            except PlaywrightError as e:
-                logger.warning(f"Subprocess init failed: {e}")
-                subprocess_supported = False
-
-        if not subprocess_supported:
-            try:
-                return await _render_resume_pdf_in_thread(
-                    url, selector, pdf_format, pdf_margins
-                )
-            except PlaywrightError as e:
-                logger.warning(f"Thread-based rendering failed: {e}")
-                # FALLBACK: Return simple text-based PDF
-                return _create_simple_pdf(url, pdf_margins, pdf_format)
-            except Exception as e:
-                logger.warning(f"Unexpected error in thread rendering: {e}")
-                return _create_simple_pdf(url, pdf_margins, pdf_format)
-
-        if _browser is None:
-            logger.warning("PDF renderer not initialized, using fallback")
-            return _create_simple_pdf(url, pdf_margins, pdf_format)
-
+    # Try Playwright first
+    if await _check_playwright_available():
         try:
-            return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
-        except PlaywrightError as e:
-            logger.error(f"Final browser render attempt failed: {e}")
-            return _create_simple_pdf(url, pdf_margins, pdf_format)
-    
-    except Exception as e:
-        # ABSOLUTE FALLBACK: Any uncaught exception
-        logger.critical(f"CRITICAL: Uncaught exception in render_resume_pdf: {e}", exc_info=True)
-        try:
-            return _create_simple_pdf(url, pdf_margins, pdf_format)
-        except Exception as fallback_err:
-            logger.critical(f"Fallback PDF creation also failed: {fallback_err}", exc_info=True)
-            raise PDFRenderError(f"PDF rendering completely failed: {str(e)[:100]}")
+            return await _render_with_playwright(url, page_size, pdf_margins)
+        except Exception as e:
+            logger.warning(f"Playwright rendering failed: {e}. Falling back to fpdf2.")
+
+    # fpdf2 fallback - generate directly from resume data
+    logger.info("Using fpdf2 to generate PDF from resume data")
+    return _generate_pdf_from_data(resume_data, page_size, margins)
 
 
-def _create_simple_pdf(url: str, margins: dict, page_format: str) -> bytes:
-    """Create a simple PDF fallback using fpdf2 when browser rendering fails.
-    
-    This provides a basic PDF that can be downloaded even if Playwright fails.
-    Returns bytes directly - NO EXCEPTIONS ALLOWED.
+def _generate_pdf_from_data(
+    resume_data: Optional[dict],
+    page_size: str = "A4",
+    margins: Optional[dict] = None,
+) -> bytes:
+    """Generate a properly formatted PDF from resume JSON data using fpdf2.
+
+    This is the reliable fallback that works without a browser.
+    Produces a clean, professional PDF with all resume sections.
     """
-    try:
-        from fpdf import FPDF
-        
-        pdf = FPDF(format=page_format)
-        pdf.add_page()
-        pdf.set_font("Arial", size=10)
-        
-        # Add a message with fallback link
-        pdf.cell(0, 10, "Resume PDF (Generated via Fallback)", ln=True, align="C")
-        pdf.cell(0, 10, "", ln=True)
-        pdf.cell(0, 10, "Your resume is available online:", ln=True)
-        pdf.cell(0, 10, url[:80], ln=True)  # Truncate URL if too long
-        
-        # CRITICAL: output() returns bytes directly, not str
-        pdf_bytes = pdf.output()
-        
-        if not isinstance(pdf_bytes, bytes):
-            pdf_bytes = pdf_bytes.encode('utf-8')
-        
-        logger.info(f"Fallback PDF created successfully: {len(pdf_bytes)} bytes")
-        return pdf_bytes
-        
-    except ImportError:
-        logger.error("fpdf2 not installed - cannot create fallback PDF")
-        raise PDFRenderError("PDF rendering failed: fpdf2 not available")
-    except Exception as e:
-        logger.error(f"Fallback PDF creation failed: {e}", exc_info=True)
-        raise PDFRenderError(f"PDF rendering failed completely: {str(e)[:100]}")
+    from fpdf import FPDF
+
+    margin_top = (margins or {}).get("top", 15)
+    margin_bottom = (margins or {}).get("bottom", 15)
+    margin_left = (margins or {}).get("left", 20)
+    margin_right = (margins or {}).get("right", 20)
+
+    pdf = FPDF(format=page_size)
+    pdf.set_margins(margin_left, margin_top, margin_right)
+    pdf.set_auto_page_break(auto=True, margin=margin_bottom)
+    pdf.add_page()
+
+    data = resume_data or {}
+
+    # ── Helper functions ──────────────────────────────────────────────────────
+
+    def safe_text(val: Any) -> str:
+        if val is None:
+            return ""
+        text = str(val)
+        # Replace unicode characters that fpdf2 can't handle in core fonts
+        replacements = {
+            "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
+            "\u2013": "-", "\u2014": "-", "\u2022": "*", "\u00b7": "*",
+            "\u00e9": "e", "\u00e8": "e", "\u00ea": "e", "\u00eb": "e",
+            "\u00e0": "a", "\u00e2": "a", "\u00e4": "a", "\u00f4": "o",
+            "\u00f6": "o", "\u00fc": "u", "\u00fb": "u", "\u00e7": "c",
+            "\u00f1": "n", "\u00ed": "i", "\u00ee": "i", "\u00ef": "i",
+        }
+        for orig, repl in replacements.items():
+            text = text.replace(orig, repl)
+        return text
+
+    def section_header(title: str) -> None:
+        """Draw a section header with underline."""
+        pdf.set_font("Arial", "B", 11)
+        pdf.set_text_color(30, 30, 30)
+        pdf.cell(0, 6, safe_text(title.upper()), ln=True)
+        # Draw underline
+        x = pdf.get_x()
+        y = pdf.get_y()
+        page_w = pdf.w - pdf.l_margin - pdf.r_margin
+        pdf.set_draw_color(100, 100, 100)
+        pdf.line(pdf.l_margin, y, pdf.l_margin + page_w, y)
+        pdf.ln(2)
+
+    def body_text(text: str, indent: float = 0) -> None:
+        """Write body text with optional indent."""
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(50, 50, 50)
+        if indent:
+            pdf.set_x(pdf.l_margin + indent)
+        pdf.multi_cell(0, 5, safe_text(text))
+
+    def bullet_item(text: str) -> None:
+        """Write a bullet point item."""
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(50, 50, 50)
+        x_start = pdf.l_margin + 4
+        available_w = pdf.w - pdf.l_margin - pdf.r_margin - 8
+        pdf.set_x(pdf.l_margin)
+        pdf.cell(4, 5, "*")
+        pdf.set_x(x_start)
+        pdf.multi_cell(available_w, 5, safe_text(text))
+
+    def small_gap() -> None:
+        pdf.ln(2)
+
+    def medium_gap() -> None:
+        pdf.ln(4)
+
+    # ── Personal Info / Header ────────────────────────────────────────────────
+    personal = data.get("personalInfo", {}) or {}
+    name = safe_text(personal.get("name", "Resume"))
+    title = safe_text(personal.get("title", ""))
+    email = safe_text(personal.get("email", ""))
+    phone = safe_text(personal.get("phone", ""))
+    location = safe_text(personal.get("location", ""))
+    website = safe_text(personal.get("website", "") or "")
+    linkedin = safe_text(personal.get("linkedin", "") or "")
+    github = safe_text(personal.get("github", "") or "")
+
+    # Name
+    pdf.set_font("Arial", "B", 18)
+    pdf.set_text_color(20, 20, 20)
+    pdf.cell(0, 10, name, ln=True, align="C")
+
+    # Title
+    if title:
+        pdf.set_font("Arial", "I", 11)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 6, title, ln=True, align="C")
+
+    # Contact line
+    contact_parts = [p for p in [email, phone, location] if p]
+    if contact_parts:
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 5, "  |  ".join(contact_parts), ln=True, align="C")
+
+    # Links line
+    link_parts = [p for p in [website, linkedin, github] if p]
+    if link_parts:
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(80, 80, 80)
+        pdf.cell(0, 5, "  |  ".join(link_parts), ln=True, align="C")
+
+    # Divider under header
+    pdf.ln(2)
+    pdf.set_draw_color(60, 60, 60)
+    pdf.set_line_width(0.5)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.set_line_width(0.2)
+    medium_gap()
+
+    # ── Summary ───────────────────────────────────────────────────────────────
+    summary = safe_text(data.get("summary", ""))
+    if summary:
+        section_header("Summary")
+        body_text(summary)
+        medium_gap()
+
+    # ── Work Experience ───────────────────────────────────────────────────────
+    work_exp = data.get("workExperience", []) or []
+    if work_exp:
+        section_header("Experience")
+        for job in work_exp:
+            if not isinstance(job, dict):
+                continue
+            job_title = safe_text(job.get("title", ""))
+            company = safe_text(job.get("company", ""))
+            years = safe_text(job.get("years", ""))
+            loc = safe_text(job.get("location", "") or "")
+            description = job.get("description", []) or []
+
+            # Title + Company on same line, years on right
+            if job_title or company:
+                pdf.set_font("Arial", "B", 10)
+                pdf.set_text_color(20, 20, 20)
+                left = " | ".join(p for p in [job_title, company] if p)
+                # Two-column: left text, right date
+                page_w = pdf.w - pdf.l_margin - pdf.r_margin
+                if years:
+                    pdf.cell(page_w * 0.7, 5, left, ln=False)
+                    pdf.set_font("Arial", "", 9)
+                    pdf.set_text_color(80, 80, 80)
+                    pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
+                else:
+                    pdf.cell(0, 5, left, ln=True)
+
+            if loc:
+                pdf.set_font("Arial", "I", 9)
+                pdf.set_text_color(100, 100, 100)
+                pdf.cell(0, 4, loc, ln=True)
+
+            for bullet in description:
+                if bullet and isinstance(bullet, str):
+                    bullet_item(bullet)
+
+            small_gap()
+        medium_gap()
+
+    # ── Education ─────────────────────────────────────────────────────────────
+    education = data.get("education", []) or []
+    if education:
+        section_header("Education")
+        for edu in education:
+            if not isinstance(edu, dict):
+                continue
+            institution = safe_text(edu.get("institution", ""))
+            degree = safe_text(edu.get("degree", ""))
+            years = safe_text(edu.get("years", ""))
+            desc = safe_text(edu.get("description", "") or "")
+
+            page_w = pdf.w - pdf.l_margin - pdf.r_margin
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_text_color(20, 20, 20)
+            left = " | ".join(p for p in [degree, institution] if p)
+            if years:
+                pdf.cell(page_w * 0.7, 5, left, ln=False)
+                pdf.set_font("Arial", "", 9)
+                pdf.set_text_color(80, 80, 80)
+                pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
+            else:
+                pdf.cell(0, 5, left, ln=True)
+
+            if desc:
+                body_text(desc, indent=4)
+            small_gap()
+        medium_gap()
+
+    # ── Projects ──────────────────────────────────────────────────────────────
+    projects = data.get("personalProjects", []) or []
+    if projects:
+        section_header("Projects")
+        for proj in projects:
+            if not isinstance(proj, dict):
+                continue
+            proj_name = safe_text(proj.get("name", ""))
+            role = safe_text(proj.get("role", "") or "")
+            years = safe_text(proj.get("years", "") or "")
+            gh = safe_text(proj.get("github", "") or "")
+            web = safe_text(proj.get("website", "") or "")
+            description = proj.get("description", []) or []
+
+            page_w = pdf.w - pdf.l_margin - pdf.r_margin
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_text_color(20, 20, 20)
+            left = proj_name
+            if role:
+                left = f"{proj_name} - {role}"
+            if years:
+                pdf.cell(page_w * 0.7, 5, left, ln=False)
+                pdf.set_font("Arial", "", 9)
+                pdf.set_text_color(80, 80, 80)
+                pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
+            else:
+                pdf.cell(0, 5, left, ln=True)
+
+            if gh or web:
+                links = "  |  ".join(p for p in [gh, web] if p)
+                pdf.set_font("Arial", "I", 8)
+                pdf.set_text_color(80, 80, 150)
+                pdf.cell(0, 4, links, ln=True)
+
+            for bullet in description:
+                if bullet and isinstance(bullet, str):
+                    bullet_item(bullet)
+            small_gap()
+        medium_gap()
+
+    # ── Skills & Additional ───────────────────────────────────────────────────
+    additional = data.get("additional", {}) or {}
+    skills = additional.get("technicalSkills", []) or []
+    certs = additional.get("certificationsTraining", []) or []
+    languages = additional.get("languages", []) or []
+    awards = additional.get("awards", []) or []
+
+    if skills:
+        section_header("Technical Skills")
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(50, 50, 50)
+        pdf.multi_cell(0, 5, "  *  ".join(safe_text(s) for s in skills if s))
+        medium_gap()
+
+    if certs:
+        section_header("Certifications")
+        for cert in certs:
+            if cert:
+                bullet_item(cert)
+        medium_gap()
+
+    if languages:
+        section_header("Languages")
+        pdf.set_font("Arial", "", 9)
+        pdf.set_text_color(50, 50, 50)
+        pdf.cell(0, 5, "  *  ".join(safe_text(l) for l in languages if l), ln=True)
+        medium_gap()
+
+    if awards:
+        section_header("Awards")
+        for award in awards:
+            if award:
+                bullet_item(award)
+        medium_gap()
+
+    # ── Custom Sections ───────────────────────────────────────────────────────
+    custom_sections = data.get("customSections", {}) or {}
+    if isinstance(custom_sections, dict):
+        for section_key, section_val in custom_sections.items():
+            if not isinstance(section_val, dict):
+                continue
+            sec_title = safe_text(section_val.get("title", section_key))
+            sec_type = section_val.get("sectionType", "")
+            items = section_val.get("items", []) or []
+            if not items:
+                continue
+            section_header(sec_title)
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                item_title = safe_text(item.get("title", "") or "")
+                item_years = safe_text(item.get("years", "") or "")
+                item_desc = item.get("description", []) or []
+                if item_title:
+                    page_w = pdf.w - pdf.l_margin - pdf.r_margin
+                    pdf.set_font("Arial", "B", 10)
+                    pdf.set_text_color(20, 20, 20)
+                    if item_years:
+                        pdf.cell(page_w * 0.7, 5, item_title, ln=False)
+                        pdf.set_font("Arial", "", 9)
+                        pdf.set_text_color(80, 80, 80)
+                        pdf.cell(page_w * 0.3, 5, item_years, ln=True, align="R")
+                    else:
+                        pdf.cell(0, 5, item_title, ln=True)
+                for bullet in item_desc:
+                    if bullet and isinstance(bullet, str):
+                        bullet_item(bullet)
+                small_gap()
+            medium_gap()
+
+    pdf_bytes = pdf.output()
+    if isinstance(pdf_bytes, bytearray):
+        pdf_bytes = bytes(pdf_bytes)
+    logger.info(f"fpdf2 PDF generated: {len(pdf_bytes)} bytes")
+    return pdf_bytes

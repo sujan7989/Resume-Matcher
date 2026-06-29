@@ -1513,6 +1513,9 @@ async def download_resume_pdf(
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
 
+    # Get resume data for fpdf2 fallback
+    resume_data = resume.get("processed_data")
+
     # Build print URL with all settings
     params = (
         f"template={template}"
@@ -1536,7 +1539,6 @@ async def download_resume_pdf(
         params = f"{params}&lang={lang}"
     url = f"{settings.frontend_base_url}/print/resumes/{resume_id}?{params}"
 
-    # Use the exact margins provided; compact mode only affects spacing.
     pdf_margins = {
         "top": marginTop,
         "right": marginRight,
@@ -1544,19 +1546,16 @@ async def download_resume_pdf(
         "left": marginLeft,
     }
 
-    # Render PDF with margins applied to every page
     try:
-        pdf_bytes = await render_resume_pdf(url, pageSize, margins=pdf_margins)
+        pdf_bytes = await render_resume_pdf(
+            url, pageSize, margins=pdf_margins, resume_data=resume_data
+        )
     except PDFRenderError as e:
         logger.error(f"PDF Render Error for resume {resume_id}: {e}")
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
-        # CRITICAL: Catch any unhandled exception and return 500 with details
-        logger.error(f"CRITICAL: Unhandled exception in PDF generation for {resume_id}: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, 
-            detail=f"PDF generation failed: {str(e)[:100]}"
-        )
+        logger.error(f"Unhandled exception in PDF generation for {resume_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"PDF generation failed: {str(e)[:200]}")
 
     headers = {"Content-Disposition": f'attachment; filename="resume_{resume_id}.pdf"'}
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)

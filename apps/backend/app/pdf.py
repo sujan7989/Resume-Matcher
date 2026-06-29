@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 # implicit 30s default so a slow-but-working render (large resume, cold cache,
 # modest hardware) still completes, while a genuinely stuck page still fails
 # in finite time rather than hanging.
-_NAV_TIMEOUT_MS = 60_000
+# INCREASED to 120s (2min) on Render free tier - resources are limited
+_NAV_TIMEOUT_MS = 120_000
 
 
 class PDFRenderError(Exception):
@@ -49,15 +50,25 @@ async def init_pdf_renderer() -> None:
 
     # Fast path: already initialized
     if _browser is not None:
+        logger.info("PDF renderer already initialized")
         return
 
     # Use lock to prevent race condition during initialization
     async with _init_lock:
         # Double-check after acquiring lock
         if _browser is not None:
+            logger.info("PDF renderer already initialized (after lock)")
             return
-        _playwright = await async_playwright().start()
-        _browser = await _launch_browser(_playwright)
+        
+        logger.info("Initializing PDF renderer...")
+        try:
+            _playwright = await async_playwright().start()
+            logger.info("Playwright started")
+            _browser = await _launch_browser(_playwright)
+            logger.info(f"Browser launched successfully: {_browser}")
+        except Exception as e:
+            logger.critical(f"Failed to initialize PDF renderer: {e}", exc_info=True)
+            raise
 
 
 def _resolve_pdf_format(page_size: str) -> str:
@@ -149,18 +160,47 @@ async def _render_page_to_pdf(
     # Wait on the real readiness condition instead — document "load", the
     # resume content selector, and fonts — all bounded by an explicit timeout
     # so the outcome is deterministic.
-    await page.goto(url, wait_until="load", timeout=_NAV_TIMEOUT_MS)
-    await page.wait_for_selector(selector, timeout=_NAV_TIMEOUT_MS)
-    # Bound the fonts wait too — plain page.evaluate has no timeout, so a stuck
-    # font load could otherwise hang the render past _NAV_TIMEOUT_MS.
-    await page.wait_for_function(
-        "() => document.fonts.ready.then(() => true)", timeout=_NAV_TIMEOUT_MS
-    )
-    return await page.pdf(
-        format=pdf_format,
-        print_background=True,
-        margin=pdf_margins,
-    )
+    
+    try:
+        logger.info(f"Loading URL: {url}")
+        await page.goto(url, wait_until="load", timeout=_NAV_TIMEOUT_MS)
+        logger.info("Page loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to load page {url}: {e}", exc_info=True)
+        raise
+    
+    try:
+        logger.info(f"Waiting for selector: {selector}")
+        await page.wait_for_selector(selector, timeout=_NAV_TIMEOUT_MS)
+        logger.info("Selector found")
+    except Exception as e:
+        logger.warning(f"Selector {selector} not found, attempting to render anyway: {e}")
+        # Don't fail here - try to render anyway
+    
+    try:
+        # Bound the fonts wait too — plain page.evaluate has no timeout, so a stuck
+        # font load could otherwise hang the render past _NAV_TIMEOUT_MS.
+        logger.info("Waiting for fonts to load")
+        await page.wait_for_function(
+            "() => document.fonts.ready.then(() => true)", timeout=_NAV_TIMEOUT_MS
+        )
+        logger.info("Fonts loaded")
+    except Exception as e:
+        logger.warning(f"Font loading timed out, continuing anyway: {e}")
+        # Don't fail here - fonts might not be ready but we can still render
+    
+    try:
+        logger.info(f"Generating PDF: format={pdf_format}, margins={pdf_margins}")
+        pdf_bytes = await page.pdf(
+            format=pdf_format,
+            print_background=True,
+            margin=pdf_margins,
+        )
+        logger.info(f"PDF generated successfully: {len(pdf_bytes)} bytes")
+        return pdf_bytes
+    except Exception as e:
+        logger.error(f"PDF generation failed: {e}", exc_info=True)
+        raise
 
 
 async def _render_with_browser(

@@ -72,15 +72,21 @@ class Database:
     def _ensure_initialized(self) -> None:
         """Create engines and tables once (idempotent).
 
-        Tables are created via the **sync** engine so both the sync (api_keys)
-        and async (docs) paths see them immediately, without needing an event
-        loop. Both engines point at the same file.
+        Tables are created via the **sync** engine. If CREATE TABLE fails
+        (e.g., transaction pooler doesn't support DDL), we still mark
+        initialized=True so queries can proceed against pre-existing tables.
         """
         if self._initialized:
             return
         self._sync_engine = make_sync_engine(self.db_path)
         self._sync_session_factory = sessionmaker(self._sync_engine, expire_on_commit=False)
-        init_models_sync(self._sync_engine)
+        try:
+            init_models_sync(self._sync_engine)
+        except Exception as e:
+            logger.warning(
+                "CREATE TABLE failed (tables may already exist or DDL not supported "
+                "on this connection mode): %s", e
+            )
         self._async_engine = make_async_engine(self.db_path)
         self._async_session_factory = async_sessionmaker(
             self._async_engine, expire_on_commit=False

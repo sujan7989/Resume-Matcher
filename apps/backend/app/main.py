@@ -50,6 +50,8 @@ async def lifespan(app: FastAPI):
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database initialization error: {e}")
+        # Reset so next request retries initialization
+        db._initialized = False
 
     from app.scripts.migrate_tinydb_to_sqlite import migrate as migrate_tinydb
     result = await migrate_tinydb()

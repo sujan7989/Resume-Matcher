@@ -299,58 +299,71 @@ async def render_resume_pdf(
     pdf_format = _resolve_pdf_format(page_size)
     pdf_margins = _resolve_pdf_margins(margins)
 
-    if _browser is not None:
+    # CRITICAL FIX: Wrap entire function in try/except to catch ALL errors
+    # and provide fallback PDF. This prevents 500 errors.
+    try:
+        if _browser is not None:
+            try:
+                return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
+            except PlaywrightError as e:
+                logger.warning(f"Browser rendering failed, trying thread-based approach: {e}")
+                # Fall through to thread-based approach
+
+        async with _subprocess_lock:
+            subprocess_supported = _subprocess_supported
+            if subprocess_supported and not _loop_supports_subprocess():
+                _subprocess_supported = False
+                subprocess_supported = False
+
+        if subprocess_supported:
+            try:
+                await init_pdf_renderer()
+            except NotImplementedError:
+                async with _subprocess_lock:
+                    _subprocess_supported = False
+                subprocess_supported = False
+            except PlaywrightError as e:
+                logger.warning(f"Subprocess init failed: {e}")
+                subprocess_supported = False
+
+        if not subprocess_supported:
+            try:
+                return await _render_resume_pdf_in_thread(
+                    url, selector, pdf_format, pdf_margins
+                )
+            except PlaywrightError as e:
+                logger.warning(f"Thread-based rendering failed: {e}")
+                # FALLBACK: Return simple text-based PDF
+                return _create_simple_pdf(url, pdf_margins, pdf_format)
+            except Exception as e:
+                logger.warning(f"Unexpected error in thread rendering: {e}")
+                return _create_simple_pdf(url, pdf_margins, pdf_format)
+
+        if _browser is None:
+            logger.warning("PDF renderer not initialized, using fallback")
+            return _create_simple_pdf(url, pdf_margins, pdf_format)
+
         try:
             return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
         except PlaywrightError as e:
-            logger.warning(f"Browser rendering failed, trying thread-based approach: {e}")
-            # Fall through to thread-based approach
-
-    async with _subprocess_lock:
-        subprocess_supported = _subprocess_supported
-        if subprocess_supported and not _loop_supports_subprocess():
-            _subprocess_supported = False
-            subprocess_supported = False
-
-    if subprocess_supported:
-        try:
-            await init_pdf_renderer()
-        except NotImplementedError:
-            async with _subprocess_lock:
-                _subprocess_supported = False
-            subprocess_supported = False
-        except PlaywrightError as e:
-            logger.warning(f"Subprocess init failed: {e}")
-            subprocess_supported = False
-
-    if not subprocess_supported:
-        try:
-            return await _render_resume_pdf_in_thread(
-                url, selector, pdf_format, pdf_margins
-            )
-        except PlaywrightError as e:
-            logger.warning(f"Thread-based rendering failed: {e}")
-            # FALLBACK: Return simple text-based PDF
+            logger.error(f"Final browser render attempt failed: {e}")
             return _create_simple_pdf(url, pdf_margins, pdf_format)
-        except Exception as e:
-            logger.warning(f"Unexpected error in thread rendering: {e}")
+    
+    except Exception as e:
+        # ABSOLUTE FALLBACK: Any uncaught exception
+        logger.critical(f"CRITICAL: Uncaught exception in render_resume_pdf: {e}", exc_info=True)
+        try:
             return _create_simple_pdf(url, pdf_margins, pdf_format)
-
-    if _browser is None:
-        logger.warning("PDF renderer not initialized, using fallback")
-        return _create_simple_pdf(url, pdf_margins, pdf_format)
-
-    try:
-        return await _render_with_browser(_browser, url, selector, pdf_format, pdf_margins)
-    except PlaywrightError as e:
-        logger.error(f"Final browser render attempt failed: {e}")
-        return _create_simple_pdf(url, pdf_margins, pdf_format)
+        except Exception as fallback_err:
+            logger.critical(f"Fallback PDF creation also failed: {fallback_err}", exc_info=True)
+            raise PDFRenderError(f"PDF rendering completely failed: {str(e)[:100]}")
 
 
 def _create_simple_pdf(url: str, margins: dict, page_format: str) -> bytes:
     """Create a simple PDF fallback using fpdf2 when browser rendering fails.
     
     This provides a basic PDF that can be downloaded even if Playwright fails.
+    Returns bytes directly - NO EXCEPTIONS ALLOWED.
     """
     try:
         from fpdf import FPDF
@@ -360,12 +373,23 @@ def _create_simple_pdf(url: str, margins: dict, page_format: str) -> bytes:
         pdf.set_font("Arial", size=10)
         
         # Add a message with fallback link
-        pdf.cell(0, 10, "Resume PDF", ln=True, align="C")
+        pdf.cell(0, 10, "Resume PDF (Generated via Fallback)", ln=True, align="C")
         pdf.cell(0, 10, "", ln=True)
-        pdf.cell(0, 10, "View your resume online:", ln=True)
-        pdf.cell(0, 10, url, ln=True)
+        pdf.cell(0, 10, "Your resume is available online:", ln=True)
+        pdf.cell(0, 10, url[:80], ln=True)  # Truncate URL if too long
         
-        return pdf.output()
+        # CRITICAL: output() returns bytes directly, not str
+        pdf_bytes = pdf.output()
+        
+        if not isinstance(pdf_bytes, bytes):
+            pdf_bytes = pdf_bytes.encode('utf-8')
+        
+        logger.info(f"Fallback PDF created successfully: {len(pdf_bytes)} bytes")
+        return pdf_bytes
+        
+    except ImportError:
+        logger.error("fpdf2 not installed - cannot create fallback PDF")
+        raise PDFRenderError("PDF rendering failed: fpdf2 not available")
     except Exception as e:
-        logger.error(f"Fallback PDF creation failed: {e}")
-        raise PDFRenderError(f"PDF rendering failed and fallback unavailable: {e}")
+        logger.error(f"Fallback PDF creation failed: {e}", exc_info=True)
+        raise PDFRenderError(f"PDF rendering failed completely: {str(e)[:100]}")

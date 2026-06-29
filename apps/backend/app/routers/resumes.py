@@ -1548,7 +1548,8 @@ async def download_resume_pdf(
 
     try:
         pdf_bytes = await render_resume_pdf(
-            url, pageSize, margins=pdf_margins, resume_data=resume_data
+            url, pageSize, margins=pdf_margins, resume_data=resume_data,
+            template=template,
         )
     except PDFRenderError as e:
         logger.error(f"PDF Render Error for resume {resume_id}: {e}")

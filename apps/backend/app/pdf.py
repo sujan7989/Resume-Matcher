@@ -1,156 +1,335 @@
-"""PDF rendering utilities.
+"""PDF rendering from resume data.
 
-Strategy:
-1. Try Playwright (headless Chromium) - best quality, needs browser installed
-2. Fall back to fpdf2 direct generation from resume JSON data - always works
-
-The fpdf2 fallback generates a properly formatted PDF directly from the
-resume data without needing a browser, so it works on Render free tier.
+Generates PDF directly from resume JSON using HTML + Playwright (or fpdf2 fallback).
+The HTML is built in-memory so there are NO network calls - works reliably on any host.
 """
-
 from __future__ import annotations
-
 import asyncio
 import logging
 import os
 import sys
-from pathlib import Path
-from typing import Any, Awaitable, NoReturn, Optional
-
-from playwright.async_api import (
-    Browser,
-    Error as PlaywrightError,
-    Page,
-    Playwright,
-    async_playwright,
-)
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-# Navigation timeout - 90s for slow Render free tier
-_NAV_TIMEOUT_MS = 90_000
+_NAV_TIMEOUT_MS = 60_000
 
 
 class PDFRenderError(Exception):
-    """Raised when PDF generation fails completely."""
     pass
 
 
-_playwright: Optional[Any] = None
-_browser: Optional[Browser] = None
+_playwright_instance = None
+_browser_instance = None
 _init_lock = asyncio.Lock()
-_playwright_available: Optional[bool] = None  # None = not yet checked
+_playwright_ok: Optional[bool] = None
 
 
-async def _check_playwright_available() -> bool:
-    """Check once if Playwright/Chromium is actually usable."""
-    global _playwright_available
-    if _playwright_available is not None:
-        return _playwright_available
+async def _is_playwright_available() -> bool:
+    global _playwright_ok
+    if _playwright_ok is not None:
+        return _playwright_ok
     try:
+        from playwright.async_api import async_playwright
         async with async_playwright() as p:
-            browser = await p.chromium.launch()
-            await browser.close()
-        _playwright_available = True
-        logger.info("Playwright/Chromium is available")
+            b = await p.chromium.launch()
+            await b.close()
+        _playwright_ok = True
+        logger.info("Playwright/Chromium available")
     except Exception as e:
-        _playwright_available = False
-        logger.warning(f"Playwright/Chromium not available: {e} - will use fpdf2 fallback")
-    return _playwright_available
+        _playwright_ok = False
+        logger.warning(f"Playwright not available ({e}), will use fpdf2")
+    return _playwright_ok
 
 
 async def init_pdf_renderer() -> None:
-    """Initialize the Playwright browser instance (lazy)."""
-    global _playwright, _browser
-    if _browser is not None:
+    global _playwright_instance, _browser_instance
+    if _browser_instance:
         return
     async with _init_lock:
-        if _browser is not None:
+        if _browser_instance:
             return
-        if not await _check_playwright_available():
+        if not await _is_playwright_available():
             return
         try:
-            logger.info("Starting Playwright browser...")
-            _playwright = await async_playwright().start()
-            _browser = await _playwright.chromium.launch()
-            logger.info("Playwright browser started successfully")
+            from playwright.async_api import async_playwright
+            _playwright_instance = await async_playwright().start()
+            _browser_instance = await _playwright_instance.chromium.launch()
+            logger.info("Playwright browser started")
         except Exception as e:
-            logger.warning(f"Failed to start Playwright browser: {e}")
-            _playwright = None
-            _browser = None
+            logger.warning(f"Browser start failed: {e}")
+            _playwright_instance = None
+            _browser_instance = None
 
 
 async def close_pdf_renderer() -> None:
-    """Close the Playwright browser instance."""
-    global _playwright, _browser
-    if _browser is not None:
+    global _playwright_instance, _browser_instance
+    if _browser_instance:
         try:
-            await _browser.close()
+            await _browser_instance.close()
         except Exception:
             pass
-        _browser = None
-    if _playwright is not None:
+        _browser_instance = None
+    if _playwright_instance:
         try:
-            await _playwright.stop()
+            await _playwright_instance.stop()
         except Exception:
             pass
-        _playwright = None
+        _playwright_instance = None
 
 
-def _resolve_pdf_format(page_size: str) -> str:
-    return {"A4": "A4", "LETTER": "Letter"}.get(page_size, "A4")
+def _safe(val: Any) -> str:
+    """Convert to string and escape HTML special characters."""
+    if val is None:
+        return ""
+    import html
+    return html.escape(str(val))
 
 
-def _resolve_pdf_margins(margins: Optional[dict]) -> dict:
-    if margins:
-        return {
-            "top": f"{margins.get('top', 10)}mm",
-            "right": f"{margins.get('right', 10)}mm",
-            "bottom": f"{margins.get('bottom', 10)}mm",
-            "left": f"{margins.get('left', 10)}mm",
-        }
-    return {"top": "10mm", "right": "10mm", "bottom": "10mm", "left": "10mm"}
+def _build_resume_html(data: dict, template: str, page_size: str, margins: dict) -> str:
+    """Build a complete, styled HTML document from resume JSON.
+    
+    Respects template choice: single, two-column, modern, latex, clean, vivid.
+    Designed for Playwright PDF rendering - 1 page, ATS-friendly.
+    """
+    mt = margins.get("top", 12)
+    mb = margins.get("bottom", 12)
+    ml = margins.get("left", 18)
+    mr = margins.get("right", 18)
 
+    personal = data.get("personalInfo") or {}
+    name = _safe(personal.get("name", ""))
+    title = _safe(personal.get("title", ""))
+    email = _safe(personal.get("email", ""))
+    phone = _safe(personal.get("phone", ""))
+    location = _safe(personal.get("location", ""))
+    website = _safe(personal.get("website") or "")
+    linkedin = _safe(personal.get("linkedin") or "")
+    github = _safe(personal.get("github") or "")
+    summary = _safe(data.get("summary", ""))
 
-async def _render_with_playwright(url: str, page_size: str, pdf_margins: dict) -> bytes:
-    """Render URL to PDF using Playwright. Raises on any failure."""
-    global _browser
+    contact_parts = [p for p in [email, phone, location, website, linkedin, github] if p]
+    contact_line = " &nbsp;|&nbsp; ".join(contact_parts)
 
-    if _browser is None:
-        await init_pdf_renderer()
+    work_exp = data.get("workExperience") or []
+    education = data.get("education") or []
+    projects = data.get("personalProjects") or []
+    additional = data.get("additional") or {}
+    skills = additional.get("technicalSkills") or []
+    certs = additional.get("certificationsTraining") or []
+    languages = additional.get("languages") or []
+    awards = additional.get("awards") or []
 
-    if _browser is None:
-        raise PDFRenderError("Playwright browser not available")
+    # ── Template-specific CSS ──────────────────────────────────────────────────
+    if template in ("swiss-two-column", "modern-two-column"):
+        layout_css = """
+        .resume-body { display: grid; grid-template-columns: 1fr 2.2fr; gap: 14px; }
+        .sidebar { background: #f5f6fa; padding: 8px; border-radius: 4px; }
+        .main-col {}
+        """
+        two_col = True
+    else:
+        layout_css = ".resume-body { display: block; }"
+        two_col = False
 
-    pdf_format = _resolve_pdf_format(page_size)
-    page: Page = await _browser.new_page()
-    try:
-        logger.info(f"Playwright: loading {url}")
-        await page.goto(url, wait_until="load", timeout=_NAV_TIMEOUT_MS)
+    if template == "modern" or template == "modern-two-column":
+        accent = "#2563eb"
+        header_style = f"background:{accent}; color:white; padding:12px {mr}mm 10px {ml}mm; margin:-{mt}mm -{mr}mm 10px -{ml}mm;"
+        name_color = "white"
+        section_color = accent
+        section_border = f"border-bottom: 2px solid {accent};"
+        font_family = "Arial, Helvetica, sans-serif"
+    elif template == "latex":
+        accent = "#000000"
+        header_style = ""
+        name_color = "#000"
+        section_color = "#000"
+        section_border = "border-bottom: 1px solid #000;"
+        font_family = "'Georgia', 'Times New Roman', serif"
+    elif template == "clean":
+        accent = "#374151"
+        header_style = ""
+        name_color = "#111"
+        section_color = "#374151"
+        section_border = "border-bottom: 1px solid #d1d5db;"
+        font_family = "Arial, Helvetica, sans-serif"
+    elif template == "vivid":
+        accent = "#7c3aed"
+        header_style = f"border-left: 5px solid {accent}; padding-left: 10px; margin-bottom: 10px;"
+        name_color = accent
+        section_color = accent
+        section_border = f"border-bottom: 2px solid {accent};"
+        font_family = "Arial, Helvetica, sans-serif"
+    else:
+        # swiss-single (default) - classic ATS
+        accent = "#1e40af"
+        header_style = ""
+        name_color = "#111827"
+        section_color = "#1e40af"
+        section_border = "border-bottom: 1.5px solid #1e40af;"
+        font_family = "Arial, Helvetica, sans-serif"
 
-        # Wait for resume content
-        try:
-            await page.wait_for_selector(".resume-print", timeout=30_000)
-        except Exception:
-            logger.warning("Selector .resume-print not found, rendering anyway")
+    page_w = "210mm" if page_size == "A4" else "215.9mm"
+    page_h = "297mm" if page_size == "A4" else "279.4mm"
 
-        # Wait for fonts
-        try:
-            await page.wait_for_function(
-                "() => document.fonts.ready.then(() => true)", timeout=30_000
-            )
-        except Exception:
-            logger.warning("Font loading timed out, continuing")
+    css = f"""
+    @page {{ size: {page_w} {page_h}; margin: {mt}mm {mr}mm {mb}mm {ml}mm; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: {font_family}; font-size: 9pt; color: #222; line-height: 1.35;
+           width: {page_w}; }}
+    .header {{ {header_style} text-align: center; margin-bottom: 8px; }}
+    .name {{ font-size: 20pt; font-weight: bold; color: {name_color}; letter-spacing: 0.5px; }}
+    .job-title {{ font-size: 10pt; color: {"#e0e7ff" if "white" == name_color else "#555"}; margin-top: 2px; }}
+    .contact {{ font-size: 7.5pt; color: {"#dbeafe" if "white" == name_color else "#666"}; margin-top: 3px; }}
+    .section {{ margin-top: 7px; }}
+    .section-title {{ font-size: 9.5pt; font-weight: bold; color: {section_color};
+                      text-transform: uppercase; letter-spacing: 0.8px; padding-bottom: 1px;
+                      {section_border} margin-bottom: 4px; }}
+    .item {{ margin-bottom: 4px; }}
+    .item-header {{ display: flex; justify-content: space-between; align-items: baseline; }}
+    .item-title {{ font-weight: bold; font-size: 9pt; color: #111; }}
+    .item-sub {{ font-size: 8.5pt; color: #444; font-style: italic; }}
+    .item-date {{ font-size: 8pt; color: #666; white-space: nowrap; margin-left: 6px; }}
+    .item-loc {{ font-size: 8pt; color: #666; }}
+    ul {{ margin: 2px 0 0 12px; padding: 0; }}
+    ul li {{ font-size: 8.5pt; color: #333; margin-bottom: 1px; line-height: 1.3; }}
+    .summary-text {{ font-size: 8.5pt; color: #333; line-height: 1.4; }}
+    .skills-list {{ font-size: 8.5pt; color: #333; }}
+    .skill-tag {{ display: inline-block; background: #f3f4f6; border-radius: 2px;
+                  padding: 1px 5px; margin: 1px 2px; font-size: 8pt; color: #374151; }}
+    {layout_css}
+    """
 
-        pdf_bytes = await page.pdf(
-            format=pdf_format,
-            print_background=True,
-            margin=pdf_margins,
+    # ── Section builders ───────────────────────────────────────────────────────
+    def sec(title: str, content: str) -> str:
+        return f'<div class="section"><div class="section-title">{title}</div>{content}</div>'
+
+    def item_html(t: str, sub: str, date: str, loc: str, bullets: list) -> str:
+        h = '<div class="item">'
+        h += '<div class="item-header">'
+        h += f'<span class="item-title">{t}</span>'
+        if date:
+            h += f'<span class="item-date">{date}</span>'
+        h += '</div>'
+        if sub:
+            h += f'<div class="item-sub">{sub}</div>'
+        if loc:
+            h += f'<div class="item-loc">{loc}</div>'
+        if bullets:
+            h += '<ul>' + ''.join(f'<li>{_safe(b)}</li>' for b in bullets if b) + '</ul>'
+        h += '</div>'
+        return h
+
+    # Build sections
+    exp_html = ""
+    for j in work_exp:
+        if not isinstance(j, dict):
+            continue
+        exp_html += item_html(
+            _safe(j.get("title", "")),
+            _safe(j.get("company", "")),
+            _safe(j.get("years", "")),
+            _safe(j.get("location") or ""),
+            j.get("description") or []
         )
-        logger.info(f"Playwright PDF generated: {len(pdf_bytes)} bytes")
-        return pdf_bytes
-    finally:
-        await page.close()
+
+    edu_html = ""
+    for e in education:
+        if not isinstance(e, dict):
+            continue
+        edu_html += item_html(
+            _safe(e.get("degree", "")),
+            _safe(e.get("institution", "")),
+            _safe(e.get("years", "")),
+            "",
+            [e.get("description")] if e.get("description") else []
+        )
+
+    proj_html = ""
+    for p in projects:
+        if not isinstance(p, dict):
+            continue
+        links = " | ".join(x for x in [_safe(p.get("github") or ""), _safe(p.get("website") or "")] if x)
+        proj_html += item_html(
+            _safe(p.get("name", "")),
+            _safe(p.get("role") or "") + (f" &mdash; {links}" if links else ""),
+            _safe(p.get("years") or ""),
+            "",
+            p.get("description") or []
+        )
+
+    skills_html = ""
+    if skills:
+        tags = "".join(f'<span class="skill-tag">{_safe(s)}</span>' for s in skills if s)
+        skills_html = f'<div class="skills-list">{tags}</div>'
+
+    extra_html = ""
+    if certs:
+        extra_html += sec("Certifications", "<ul>" + "".join(f"<li>{_safe(c)}</li>" for c in certs if c) + "</ul>")
+    if languages:
+        extra_html += sec("Languages", f'<div class="skills-list">{" &nbsp;|&nbsp; ".join(_safe(l) for l in languages if l)}</div>')
+    if awards:
+        extra_html += sec("Awards", "<ul>" + "".join(f"<li>{_safe(a)}</li>" for a in awards if a) + "</ul>")
+
+    # ── Layout: single vs two-column ──────────────────────────────────────────
+    if two_col:
+        sidebar = ""
+        if contact_parts:
+            sidebar += sec("Contact", f'<div class="summary-text">' + "<br>".join(contact_parts) + '</div>')
+        if skills:
+            sidebar += sec("Skills", skills_html)
+        if certs:
+            sidebar += sec("Certifications", "<ul>" + "".join(f"<li>{_safe(c)}</li>" for c in certs if c) + "</ul>")
+        if languages:
+            sidebar += sec("Languages", f'<div class="skills-list">{" | ".join(_safe(l) for l in languages if l)}</div>')
+        if awards:
+            sidebar += sec("Awards", "<ul>" + "".join(f"<li>{_safe(a)}</li>" for a in awards if a) + "</ul>")
+
+        main = ""
+        if summary:
+            main += sec("Summary", f'<div class="summary-text">{summary}</div>')
+        if exp_html:
+            main += sec("Experience", exp_html)
+        if edu_html:
+            main += sec("Education", edu_html)
+        if proj_html:
+            main += sec("Projects", proj_html)
+
+        body_content = f'<div class="resume-body"><div class="sidebar">{sidebar}</div><div class="main-col">{main}</div></div>'
+    else:
+        main = ""
+        if summary:
+            main += sec("Summary", f'<div class="summary-text">{summary}</div>')
+        if exp_html:
+            main += sec("Experience", exp_html)
+        if edu_html:
+            main += sec("Education", edu_html)
+        if proj_html:
+            main += sec("Projects", proj_html)
+        if skills_html:
+            main += sec("Technical Skills", skills_html)
+        main += extra_html
+        body_content = f'<div class="resume-body">{main}</div>'
+
+    header_html = f"""
+    <div class="header">
+      <div class="name">{name}</div>
+      {"<div class='job-title'>" + title + "</div>" if title else ""}
+      {"<div class='contact'>" + contact_line + "</div>" if contact_line else ""}
+    </div>
+    """
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>{css}</style>
+</head>
+<body>
+{header_html}
+{body_content}
+</body>
+</html>"""
 
 
 async def render_resume_pdf(
@@ -159,341 +338,193 @@ async def render_resume_pdf(
     selector: str = ".resume-print",
     margins: Optional[dict] = None,
     resume_data: Optional[dict] = None,
+    template: str = "swiss-single",
 ) -> bytes:
-    """Render resume to PDF directly from resume JSON data using fpdf2.
-
-    We skip Playwright entirely because:
-    - Render free tier has only 512MB RAM; Chromium needs ~300MB
-    - Even when Playwright launches, the print page calls back to the
-      backend which may not be reachable, resulting in an HTML error page
-      being saved as a "PDF" (corrupted file)
-    - fpdf2 generates directly from the resume JSON data - always works,
-      no network calls, no browser needed
-
-    Args:
-        url: The frontend print URL (kept for API compatibility, not used)
-        page_size: "A4" or "LETTER"
-        selector: CSS selector (kept for API compatibility, not used)
-        margins: Page margins dict {top, right, bottom, left} in mm
-        resume_data: Resume JSON data - used to generate the PDF
+    """Generate PDF from resume data.
+    
+    1. Build HTML from resume JSON (no network calls)
+    2. Try Playwright to render that HTML -> high-quality PDF matching the template
+    3. Fall back to fpdf2 if Playwright is unavailable
     """
-    logger.info("Generating PDF from resume data using fpdf2")
-    return _generate_pdf_from_data(resume_data, page_size, margins)
-
-
-def _generate_pdf_from_data(
-    resume_data: Optional[dict],
-    page_size: str = "A4",
-    margins: Optional[dict] = None,
-) -> bytes:
-    """Generate a properly formatted PDF from resume JSON data using fpdf2.
-
-    This is the reliable fallback that works without a browser.
-    Produces a clean, professional PDF with all resume sections.
-    """
-    from fpdf import FPDF
-
-    margin_top = (margins or {}).get("top", 15)
-    margin_bottom = (margins or {}).get("bottom", 15)
-    margin_left = (margins or {}).get("left", 20)
-    margin_right = (margins or {}).get("right", 20)
-
-    pdf = FPDF(format=page_size)
-    pdf.set_margins(margin_left, margin_top, margin_right)
-    pdf.set_auto_page_break(auto=True, margin=margin_bottom)
-    pdf.add_page()
-
+    margins = margins or {"top": 12, "bottom": 12, "left": 18, "right": 18}
     data = resume_data or {}
 
-    # ── Helper functions ──────────────────────────────────────────────────────
+    # Build HTML from resume data (reliable, no network calls)
+    html = _build_resume_html(data, template, page_size, margins)
 
-    def safe_text(val: Any) -> str:
-        if val is None:
-            return ""
-        text = str(val)
-        # Replace unicode characters that fpdf2 can't handle in core fonts
-        replacements = {
-            "\u2019": "'", "\u2018": "'", "\u201c": '"', "\u201d": '"',
-            "\u2013": "-", "\u2014": "-", "\u2022": "*", "\u00b7": "*",
-            "\u00e9": "e", "\u00e8": "e", "\u00ea": "e", "\u00eb": "e",
-            "\u00e0": "a", "\u00e2": "a", "\u00e4": "a", "\u00f4": "o",
-            "\u00f6": "o", "\u00fc": "u", "\u00fb": "u", "\u00e7": "c",
-            "\u00f1": "n", "\u00ed": "i", "\u00ee": "i", "\u00ef": "i",
-        }
-        for orig, repl in replacements.items():
-            text = text.replace(orig, repl)
-        return text
+    # Try Playwright
+    if await _is_playwright_available():
+        try:
+            await init_pdf_renderer()
+            if _browser_instance:
+                from playwright.async_api import Error as PlaywrightError
+                page = await _browser_instance.new_page()
+                try:
+                    logger.info(f"Playwright: rendering HTML template={template}")
+                    await page.set_content(html, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
+                    try:
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
+                    except Exception:
+                        pass
+                    pdf_bytes = await page.pdf(
+                        format="A4" if page_size == "A4" else "Letter",
+                        print_background=True,
+                        margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                    )
+                    logger.info(f"Playwright PDF: {len(pdf_bytes)} bytes")
+                    return pdf_bytes
+                finally:
+                    await page.close()
+        except Exception as e:
+            logger.warning(f"Playwright render failed: {e}, using fpdf2")
 
-    def section_header(title: str) -> None:
-        """Draw a section header with underline."""
-        pdf.set_font("Arial", "B", 11)
+    # fpdf2 fallback
+    logger.info("Using fpdf2 fallback")
+    return _generate_pdf_fpdf2(data, page_size, margins)
+
+
+def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dict] = None) -> bytes:
+    """fpdf2 fallback - clean ATS-friendly PDF from resume JSON."""
+    from fpdf import FPDF
+
+    ml = (margins or {}).get("left", 18)
+    mr = (margins or {}).get("right", 18)
+    mt = (margins or {}).get("top", 12)
+    mb = (margins or {}).get("bottom", 12)
+
+    pdf = FPDF(format=page_size)
+    pdf.set_margins(ml, mt, mr)
+    pdf.set_auto_page_break(True, margin=mb)
+    pdf.add_page()
+
+    def s(v: Any) -> str:
+        if v is None: return ""
+        t = str(v)
+        for a, b in {"\u2019":"'","\u2018":"'","\u201c":'"',"\u201d":'"',"\u2013":"-","\u2014":"-","\u2022":"*","\u00e9":"e","\u00e0":"a","\u00f6":"o","\u00fc":"u"}.items():
+            t = t.replace(a, b)
+        return t
+
+    pw = pdf.w - ml - mr
+
+    def sec_hdr(title: str):
+        pdf.set_font("Arial", "B", 9)
+        pdf.set_text_color(30, 64, 175)
+        pdf.cell(0, 5, title.upper(), ln=True)
+        pdf.set_draw_color(30, 64, 175)
+        pdf.line(ml, pdf.get_y(), ml + pw, pdf.get_y())
+        pdf.ln(2)
         pdf.set_text_color(30, 30, 30)
-        pdf.cell(0, 6, safe_text(title.upper()), ln=True)
-        # Draw underline
-        x = pdf.get_x()
-        y = pdf.get_y()
-        page_w = pdf.w - pdf.l_margin - pdf.r_margin
-        pdf.set_draw_color(100, 100, 100)
-        pdf.line(pdf.l_margin, y, pdf.l_margin + page_w, y)
-        pdf.ln(2)
 
-    def body_text(text: str, indent: float = 0) -> None:
-        """Write body text with optional indent."""
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(50, 50, 50)
-        if indent:
-            pdf.set_x(pdf.l_margin + indent)
-        pdf.multi_cell(0, 5, safe_text(text))
+    personal = data.get("personalInfo") or {}
+    name = s(personal.get("name", "Resume"))
 
-    def bullet_item(text: str) -> None:
-        """Write a bullet point item."""
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(50, 50, 50)
-        x_start = pdf.l_margin + 4
-        available_w = pdf.w - pdf.l_margin - pdf.r_margin - 8
-        pdf.set_x(pdf.l_margin)
-        pdf.cell(4, 5, "*")
-        pdf.set_x(x_start)
-        pdf.multi_cell(available_w, 5, safe_text(text))
-
-    def small_gap() -> None:
-        pdf.ln(2)
-
-    def medium_gap() -> None:
-        pdf.ln(4)
-
-    # ── Personal Info / Header ────────────────────────────────────────────────
-    personal = data.get("personalInfo", {}) or {}
-    name = safe_text(personal.get("name", "Resume"))
-    title = safe_text(personal.get("title", ""))
-    email = safe_text(personal.get("email", ""))
-    phone = safe_text(personal.get("phone", ""))
-    location = safe_text(personal.get("location", ""))
-    website = safe_text(personal.get("website", "") or "")
-    linkedin = safe_text(personal.get("linkedin", "") or "")
-    github = safe_text(personal.get("github", "") or "")
-
-    # Name
-    pdf.set_font("Arial", "B", 18)
+    pdf.set_font("Arial", "B", 16)
     pdf.set_text_color(20, 20, 20)
-    pdf.cell(0, 10, name, ln=True, align="C")
+    pdf.cell(0, 9, name, ln=True, align="C")
 
-    # Title
-    if title:
-        pdf.set_font("Arial", "I", 11)
+    if personal.get("title"):
+        pdf.set_font("Arial", "I", 10)
         pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 6, title, ln=True, align="C")
+        pdf.cell(0, 5, s(personal["title"]), ln=True, align="C")
 
-    # Contact line
-    contact_parts = [p for p in [email, phone, location] if p]
-    if contact_parts:
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 5, "  |  ".join(contact_parts), ln=True, align="C")
+    parts = [s(personal.get(k) or "") for k in ["email","phone","location","website","linkedin","github"] if personal.get(k)]
+    if parts:
+        pdf.set_font("Arial", "", 8)
+        pdf.set_text_color(90, 90, 90)
+        pdf.cell(0, 4, "  |  ".join(parts), ln=True, align="C")
 
-    # Links line
-    link_parts = [p for p in [website, linkedin, github] if p]
-    if link_parts:
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(80, 80, 80)
-        pdf.cell(0, 5, "  |  ".join(link_parts), ln=True, align="C")
-
-    # Divider under header
-    pdf.ln(2)
-    pdf.set_draw_color(60, 60, 60)
-    pdf.set_line_width(0.5)
-    pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+    pdf.set_draw_color(30, 64, 175)
+    pdf.set_line_width(0.4)
+    pdf.line(ml, pdf.get_y()+1, ml+pw, pdf.get_y()+1)
+    pdf.ln(4)
     pdf.set_line_width(0.2)
-    medium_gap()
 
-    # ── Summary ───────────────────────────────────────────────────────────────
-    summary = safe_text(data.get("summary", ""))
+    summary = s(data.get("summary",""))
     if summary:
-        section_header("Summary")
-        body_text(summary)
-        medium_gap()
+        sec_hdr("Summary")
+        pdf.set_font("Arial","",8.5)
+        pdf.multi_cell(0, 4.5, summary)
+        pdf.ln(3)
 
-    # ── Work Experience ───────────────────────────────────────────────────────
-    work_exp = data.get("workExperience", []) or []
-    if work_exp:
-        section_header("Experience")
-        for job in work_exp:
-            if not isinstance(job, dict):
-                continue
-            job_title = safe_text(job.get("title", ""))
-            company = safe_text(job.get("company", ""))
-            years = safe_text(job.get("years", ""))
-            loc = safe_text(job.get("location", "") or "")
-            description = job.get("description", []) or []
+    for job in (data.get("workExperience") or []):
+        if not isinstance(job, dict): continue
+        if not hasattr(pdf, '_exp_hdr_done'):
+            sec_hdr("Experience")
+            pdf._exp_hdr_done = True
+        left = " | ".join(x for x in [s(job.get("title","")), s(job.get("company",""))] if x)
+        date = s(job.get("years",""))
+        pdf.set_font("Arial","B",9)
+        pdf.set_text_color(20,20,20)
+        pdf.cell(pw*0.72, 5, left, ln=False)
+        pdf.set_font("Arial","",8)
+        pdf.set_text_color(90,90,90)
+        pdf.cell(pw*0.28, 5, date, ln=True, align="R")
+        if job.get("location"):
+            pdf.set_font("Arial","I",8)
+            pdf.cell(0, 4, s(job["location"]), ln=True)
+        for b in (job.get("description") or []):
+            if b:
+                pdf.set_font("Arial","",8.5)
+                pdf.set_text_color(50,50,50)
+                pdf.set_x(ml+3)
+                pdf.cell(3,4.5,"*",ln=False)
+                pdf.set_x(ml+6)
+                pdf.multi_cell(pw-6, 4.5, s(b))
+        pdf.ln(2)
 
-            # Title + Company on same line, years on right
-            if job_title or company:
-                pdf.set_font("Arial", "B", 10)
-                pdf.set_text_color(20, 20, 20)
-                left = " | ".join(p for p in [job_title, company] if p)
-                # Two-column: left text, right date
-                page_w = pdf.w - pdf.l_margin - pdf.r_margin
-                if years:
-                    pdf.cell(page_w * 0.7, 5, left, ln=False)
-                    pdf.set_font("Arial", "", 9)
-                    pdf.set_text_color(80, 80, 80)
-                    pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
-                else:
-                    pdf.cell(0, 5, left, ln=True)
+    for edu in (data.get("education") or []):
+        if not isinstance(edu, dict): continue
+        if not hasattr(pdf, '_edu_hdr_done'):
+            sec_hdr("Education")
+            pdf._edu_hdr_done = True
+        left = " | ".join(x for x in [s(edu.get("degree","")), s(edu.get("institution",""))] if x)
+        pdf.set_font("Arial","B",9)
+        pdf.set_text_color(20,20,20)
+        pdf.cell(pw*0.72, 5, left, ln=False)
+        pdf.set_font("Arial","",8)
+        pdf.set_text_color(90,90,90)
+        pdf.cell(pw*0.28, 5, s(edu.get("years","")), ln=True, align="R")
+        if edu.get("description"):
+            pdf.set_font("Arial","",8.5)
+            pdf.multi_cell(0, 4.5, s(edu["description"]))
+        pdf.ln(2)
 
-            if loc:
-                pdf.set_font("Arial", "I", 9)
-                pdf.set_text_color(100, 100, 100)
-                pdf.cell(0, 4, loc, ln=True)
+    for proj in (data.get("personalProjects") or []):
+        if not isinstance(proj, dict): continue
+        if not hasattr(pdf, '_proj_hdr_done'):
+            sec_hdr("Projects")
+            pdf._proj_hdr_done = True
+        pdf.set_font("Arial","B",9)
+        pdf.set_text_color(20,20,20)
+        pdf.cell(pw*0.72, 5, s(proj.get("name","")), ln=False)
+        pdf.set_font("Arial","",8)
+        pdf.set_text_color(90,90,90)
+        pdf.cell(pw*0.28, 5, s(proj.get("years") or ""), ln=True, align="R")
+        for b in (proj.get("description") or []):
+            if b:
+                pdf.set_font("Arial","",8.5)
+                pdf.set_text_color(50,50,50)
+                pdf.set_x(ml+3)
+                pdf.cell(3,4.5,"*",ln=False)
+                pdf.set_x(ml+6)
+                pdf.multi_cell(pw-6, 4.5, s(b))
+        pdf.ln(2)
 
-            for bullet in description:
-                if bullet and isinstance(bullet, str):
-                    bullet_item(bullet)
-
-            small_gap()
-        medium_gap()
-
-    # ── Education ─────────────────────────────────────────────────────────────
-    education = data.get("education", []) or []
-    if education:
-        section_header("Education")
-        for edu in education:
-            if not isinstance(edu, dict):
-                continue
-            institution = safe_text(edu.get("institution", ""))
-            degree = safe_text(edu.get("degree", ""))
-            years = safe_text(edu.get("years", ""))
-            desc = safe_text(edu.get("description", "") or "")
-
-            page_w = pdf.w - pdf.l_margin - pdf.r_margin
-            pdf.set_font("Arial", "B", 10)
-            pdf.set_text_color(20, 20, 20)
-            left = " | ".join(p for p in [degree, institution] if p)
-            if years:
-                pdf.cell(page_w * 0.7, 5, left, ln=False)
-                pdf.set_font("Arial", "", 9)
-                pdf.set_text_color(80, 80, 80)
-                pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
-            else:
-                pdf.cell(0, 5, left, ln=True)
-
-            if desc:
-                body_text(desc, indent=4)
-            small_gap()
-        medium_gap()
-
-    # ── Projects ──────────────────────────────────────────────────────────────
-    projects = data.get("personalProjects", []) or []
-    if projects:
-        section_header("Projects")
-        for proj in projects:
-            if not isinstance(proj, dict):
-                continue
-            proj_name = safe_text(proj.get("name", ""))
-            role = safe_text(proj.get("role", "") or "")
-            years = safe_text(proj.get("years", "") or "")
-            gh = safe_text(proj.get("github", "") or "")
-            web = safe_text(proj.get("website", "") or "")
-            description = proj.get("description", []) or []
-
-            page_w = pdf.w - pdf.l_margin - pdf.r_margin
-            pdf.set_font("Arial", "B", 10)
-            pdf.set_text_color(20, 20, 20)
-            left = proj_name
-            if role:
-                left = f"{proj_name} - {role}"
-            if years:
-                pdf.cell(page_w * 0.7, 5, left, ln=False)
-                pdf.set_font("Arial", "", 9)
-                pdf.set_text_color(80, 80, 80)
-                pdf.cell(page_w * 0.3, 5, years, ln=True, align="R")
-            else:
-                pdf.cell(0, 5, left, ln=True)
-
-            if gh or web:
-                links = "  |  ".join(p for p in [gh, web] if p)
-                pdf.set_font("Arial", "I", 8)
-                pdf.set_text_color(80, 80, 150)
-                pdf.cell(0, 4, links, ln=True)
-
-            for bullet in description:
-                if bullet and isinstance(bullet, str):
-                    bullet_item(bullet)
-            small_gap()
-        medium_gap()
-
-    # ── Skills & Additional ───────────────────────────────────────────────────
-    additional = data.get("additional", {}) or {}
-    skills = additional.get("technicalSkills", []) or []
-    certs = additional.get("certificationsTraining", []) or []
-    languages = additional.get("languages", []) or []
-    awards = additional.get("awards", []) or []
-
+    add = data.get("additional") or {}
+    skills = add.get("technicalSkills") or []
     if skills:
-        section_header("Technical Skills")
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(50, 50, 50)
-        pdf.multi_cell(0, 5, "  *  ".join(safe_text(s) for s in skills if s))
-        medium_gap()
+        sec_hdr("Technical Skills")
+        pdf.set_font("Arial","",8.5)
+        pdf.multi_cell(0, 4.5, "  *  ".join(s(x) for x in skills if x))
+        pdf.ln(2)
 
-    if certs:
-        section_header("Certifications")
-        for cert in certs:
-            if cert:
-                bullet_item(cert)
-        medium_gap()
+    for c in (add.get("certificationsTraining") or []):
+        if not hasattr(pdf, '_cert_hdr_done'):
+            sec_hdr("Certifications")
+            pdf._cert_hdr_done = True
+        pdf.set_font("Arial","",8.5)
+        pdf.set_x(ml+3); pdf.cell(3,4.5,"*",ln=False)
+        pdf.set_x(ml+6); pdf.multi_cell(pw-6, 4.5, s(c))
 
-    if languages:
-        section_header("Languages")
-        pdf.set_font("Arial", "", 9)
-        pdf.set_text_color(50, 50, 50)
-        pdf.cell(0, 5, "  *  ".join(safe_text(l) for l in languages if l), ln=True)
-        medium_gap()
-
-    if awards:
-        section_header("Awards")
-        for award in awards:
-            if award:
-                bullet_item(award)
-        medium_gap()
-
-    # ── Custom Sections ───────────────────────────────────────────────────────
-    custom_sections = data.get("customSections", {}) or {}
-    if isinstance(custom_sections, dict):
-        for section_key, section_val in custom_sections.items():
-            if not isinstance(section_val, dict):
-                continue
-            sec_title = safe_text(section_val.get("title", section_key))
-            sec_type = section_val.get("sectionType", "")
-            items = section_val.get("items", []) or []
-            if not items:
-                continue
-            section_header(sec_title)
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                item_title = safe_text(item.get("title", "") or "")
-                item_years = safe_text(item.get("years", "") or "")
-                item_desc = item.get("description", []) or []
-                if item_title:
-                    page_w = pdf.w - pdf.l_margin - pdf.r_margin
-                    pdf.set_font("Arial", "B", 10)
-                    pdf.set_text_color(20, 20, 20)
-                    if item_years:
-                        pdf.cell(page_w * 0.7, 5, item_title, ln=False)
-                        pdf.set_font("Arial", "", 9)
-                        pdf.set_text_color(80, 80, 80)
-                        pdf.cell(page_w * 0.3, 5, item_years, ln=True, align="R")
-                    else:
-                        pdf.cell(0, 5, item_title, ln=True)
-                for bullet in item_desc:
-                    if bullet and isinstance(bullet, str):
-                        bullet_item(bullet)
-                small_gap()
-            medium_gap()
-
-    pdf_bytes = pdf.output()
-    if isinstance(pdf_bytes, bytearray):
-        pdf_bytes = bytes(pdf_bytes)
-    logger.info(f"fpdf2 PDF generated: {len(pdf_bytes)} bytes")
-    return pdf_bytes
+    out = pdf.output()
+    return bytes(out) if isinstance(out, bytearray) else out

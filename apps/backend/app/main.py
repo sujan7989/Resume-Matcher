@@ -43,27 +43,29 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
     settings.data_dir.mkdir(parents=True, exist_ok=True)
-    # Import a legacy TinyDB database into SQLite if present (idempotent).
-    # Fail-fast on error: starting with an empty DB would look like data loss.
-    from app.scripts.migrate_tinydb_to_sqlite import migrate as migrate_tinydb
 
+    # Force DB init on startup - creates all tables in Supabase/SQLite immediately
+    try:
+        db._ensure_initialized()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization error: {e}")
+
+    from app.scripts.migrate_tinydb_to_sqlite import migrate as migrate_tinydb
     result = await migrate_tinydb()
     if result.get("status") == "migrated":
         logger.info("Startup data migration: %s", result)
-    # Fold any legacy plaintext API keys into the encrypted store (idempotent,
-    # non-clobbering), then strip them from config.json.
-    from app.config import migrate_legacy_keys
 
+    from app.config import migrate_legacy_keys
     migrate_legacy_keys()
-    # PDF renderer uses lazy initialization - will initialize on first use
-    # await init_pdf_renderer()
+
     yield
-    # Shutdown - wrap each cleanup in try-except to ensure all resources are released
+
+    # Shutdown
     try:
         await close_pdf_renderer()
     except Exception as e:
         logger.error(f"Error closing PDF renderer: {e}")
-
     try:
         await db.close()
     except Exception as e:

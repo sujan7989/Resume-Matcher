@@ -160,29 +160,24 @@ async def render_resume_pdf(
     margins: Optional[dict] = None,
     resume_data: Optional[dict] = None,
 ) -> bytes:
-    """Render resume to PDF.
+    """Render resume to PDF directly from resume JSON data using fpdf2.
 
-    Tries Playwright first (browser-rendered, high quality).
-    Falls back to fpdf2 direct generation from resume_data if Playwright fails.
+    We skip Playwright entirely because:
+    - Render free tier has only 512MB RAM; Chromium needs ~300MB
+    - Even when Playwright launches, the print page calls back to the
+      backend which may not be reachable, resulting in an HTML error page
+      being saved as a "PDF" (corrupted file)
+    - fpdf2 generates directly from the resume JSON data - always works,
+      no network calls, no browser needed
 
     Args:
-        url: The frontend print URL (used by Playwright)
+        url: The frontend print URL (kept for API compatibility, not used)
         page_size: "A4" or "LETTER"
-        selector: CSS selector to wait for (Playwright only)
+        selector: CSS selector (kept for API compatibility, not used)
         margins: Page margins dict {top, right, bottom, left} in mm
-        resume_data: Resume JSON data (used for fpdf2 fallback)
+        resume_data: Resume JSON data - used to generate the PDF
     """
-    pdf_margins = _resolve_pdf_margins(margins)
-
-    # Try Playwright first
-    if await _check_playwright_available():
-        try:
-            return await _render_with_playwright(url, page_size, pdf_margins)
-        except Exception as e:
-            logger.warning(f"Playwright rendering failed: {e}. Falling back to fpdf2.")
-
-    # fpdf2 fallback - generate directly from resume data
-    logger.info("Using fpdf2 to generate PDF from resume data")
+    logger.info("Generating PDF from resume data using fpdf2")
     return _generate_pdf_from_data(resume_data, page_size, margins)
 
 

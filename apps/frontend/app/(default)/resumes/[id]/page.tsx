@@ -89,6 +89,12 @@ export default function ResumeViewerPage() {
         }
       } catch (err) {
         console.error('Failed to load resume:', err);
+        // If resume not found (404), it was deleted or backend redeployed
+        // Redirect to dashboard instead of showing broken state
+        if (err instanceof Error && err.message.includes('404')) {
+          window.location.href = '/dashboard';
+          return;
+        }
         setError(t('resumeViewer.errors.failedToLoad'));
       } finally {
         setLoading(false);

@@ -1,15 +1,14 @@
-"""SQLite engine/session plumbing for the SQLAlchemy data layer.
+"""Database engine factory - supports SQLite (local) and PostgreSQL (Supabase).
 
-Every ``Database`` instance owns its own engines (one async for the document
-tables, one sync for the encrypted ``api_keys`` table read on the synchronous
-LLM hot path) built from these factories. Keeping construction here lets tests
-spin up fully isolated engines against a temp-file database.
+If DATABASE_URL env var is set (PostgreSQL/Supabase), uses that.
+Otherwise falls back to SQLite for local development.
 """
 
+import os
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
@@ -17,15 +16,33 @@ from app.models import Base
 
 __all__ = ["Base", "make_async_engine", "make_sync_engine", "init_models_sync"]
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+
+
+def _is_postgres() -> bool:
+    return bool(DATABASE_URL and ("postgres" in DATABASE_URL or "postgresql" in DATABASE_URL))
+
+
+def _async_url() -> str:
+    """Return async database URL."""
+    if _is_postgres():
+        # Convert postgresql:// or postgres:// to postgresql+asyncpg://
+        url = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+        url = url.replace("postgres://", "postgresql+asyncpg://")
+        return url
+    return ""
+
+
+def _sync_url() -> str:
+    """Return sync database URL."""
+    if _is_postgres():
+        url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        url = url.replace("postgres://", "postgresql://")
+        return url
+    return ""
+
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:
-    """Set per-connection SQLite PRAGMAs.
-
-    WAL improves concurrent read/write between the async (doc tables) and sync
-    (api_keys) engines pointed at the same file; ``busy_timeout`` rides out the
-    brief lock contention that creates; ``foreign_keys`` enforces relational
-    integrity (off by default in SQLite).
-    """
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA journal_mode=WAL")
@@ -35,30 +52,38 @@ def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> Non
         cursor.close()
 
 
-def _url(path: Path, *, driver: str) -> str:
-    """Build a SQLite URL. Absolute paths yield the required four slashes."""
+def _sqlite_url(path: Path, *, driver: str) -> str:
     return f"sqlite+{driver}:///{path}" if driver else f"sqlite:///{path}"
 
 
 def make_async_engine(path: Path) -> AsyncEngine:
-    """Create the async engine (``aiosqlite``) for the document tables."""
-    engine = create_async_engine(_url(path, driver="aiosqlite"), future=True)
+    """Create async engine. Uses PostgreSQL if DATABASE_URL is set, else SQLite."""
+    if _is_postgres():
+        url = _async_url()
+        return create_async_engine(
+            url,
+            future=True,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )
+    # SQLite fallback
+    engine = create_async_engine(_sqlite_url(path, driver="aiosqlite"), future=True)
     event.listen(engine.sync_engine, "connect", _apply_sqlite_pragmas)
     return engine
 
 
 def make_sync_engine(path: Path) -> Engine:
-    """Create the sync engine used for the encrypted api_keys table.
-
-    Key reads happen synchronously (``get_llm_config`` → ``load_config_file`` →
-    ``resolve_api_key``), so a sync engine avoids threading async through
-    ``llm.py``. It points at the same file as the async engine.
-    """
-    engine = create_engine(_url(path, driver=""), future=True)
+    """Create sync engine. Uses PostgreSQL if DATABASE_URL is set, else SQLite."""
+    if _is_postgres():
+        url = _sync_url()
+        return create_engine(url, future=True, pool_pre_ping=True)
+    # SQLite fallback
+    engine = create_engine(_sqlite_url(path, driver=""), future=True)
     event.listen(engine, "connect", _apply_sqlite_pragmas)
     return engine
 
 
 def init_models_sync(engine: Engine) -> None:
-    """Create all tables (idempotent) using a sync engine connection."""
+    """Create all tables (idempotent)."""
     Base.metadata.create_all(engine)

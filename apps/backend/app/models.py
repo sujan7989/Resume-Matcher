@@ -1,35 +1,22 @@
-"""SQLAlchemy ORM models for Resume Matcher.
-
-A single declarative ``Base`` backs all tables (doc tables migrated from
-TinyDB plus the new ``applications`` and ``api_keys`` tables). The facade in
-``app/database.py`` converts ORM rows to plain dicts so the rest of the app
-never sees ORM objects — preserving the TinyDB-era contracts.
-"""
-
+import os
 from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import JSON, Boolean, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+_IS_POSTGRES = bool(os.environ.get("DATABASE_URL", ""))
+
 
 def _utcnow_iso() -> str:
-    """Return the current UTC time as an ISO-8601 string.
-
-    Timestamps are stored as strings (not native datetimes) to preserve the
-    TinyDB-era behavior: code compares them lexically and returns them to
-    clients verbatim.
-    """
     return datetime.now(timezone.utc).isoformat()
 
 
 class Base(DeclarativeBase):
-    """Declarative base shared by every table."""
+    pass
 
 
 class Resume(Base):
-    """A resume document (master or tailored)."""
-
     __tablename__ = "resumes"
 
     resume_id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -43,24 +30,30 @@ class Resume(Base):
     cover_letter: Mapped[str | None] = mapped_column(Text, nullable=True)
     outreach_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     title: Mapped[str | None] = mapped_column(String, nullable=True)
-    # original_markdown has *absence* semantics in the TinyDB era: the key was
-    # omitted entirely when None. The facade reproduces that by only emitting
-    # the key when this column is non-null.
     original_markdown: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[str] = mapped_column(String, default=_utcnow_iso)
     updated_at: Mapped[str] = mapped_column(String, default=_utcnow_iso)
 
-    __table_args__ = (
-        # At most one master resume. Partial unique index enforces the invariant
-        # at the storage layer; ``_master_resume_lock`` remains the primary
-        # (race-free) mechanism in the facade.
-        Index(
-            "ux_resumes_single_master",
-            "is_master",
-            unique=True,
-            sqlite_where=text("is_master = 1"),
-        ),
-    )
+    if _IS_POSTGRES:
+        # PostgreSQL: partial unique index with WHERE clause
+        __table_args__ = (
+            Index(
+                "ux_resumes_single_master",
+                "is_master",
+                unique=True,
+                postgresql_where=text("is_master = TRUE"),
+            ),
+        )
+    else:
+        # SQLite: partial unique index with sqlite_where
+        __table_args__ = (
+            Index(
+                "ux_resumes_single_master",
+                "is_master",
+                unique=True,
+                sqlite_where=text("is_master = 1"),
+            ),
+        )
 
 
 class Job(Base):

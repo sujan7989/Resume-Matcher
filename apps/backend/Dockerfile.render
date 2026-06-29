@@ -30,4 +30,4 @@ RUN mkdir -p /app/data
 
 # Use shell form so $PORT is expanded at runtime from Render's injected env var
 # Render injects PORT automatically - do NOT hardcode it here
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}

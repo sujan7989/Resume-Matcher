@@ -689,11 +689,7 @@ async def get_resume(resume_id: str = Query(...)) -> ResumeFetchResponse:
 @router.get("/list", response_model=ResumeListResponse)
 async def list_resumes(include_master: bool = Query(False)) -> ResumeListResponse:
     """List resumes, optionally including the master resume."""
-    try:
-        resumes = await db.list_resumes()
-    except Exception as e:
-        logger.error("list_resumes failed: %s", e, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)[:300]}")
+    resumes = await db.list_resumes()
     if not include_master:
         resumes = [resume for resume in resumes if not resume.get("is_master", False)]
 

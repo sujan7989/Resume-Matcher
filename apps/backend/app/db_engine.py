@@ -24,22 +24,37 @@ def _is_postgres() -> bool:
 
 
 def _async_url() -> str:
-    """Return async database URL."""
-    if _is_postgres():
-        # Convert postgresql:// or postgres:// to postgresql+asyncpg://
-        url = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
-        url = url.replace("postgres://", "postgresql+asyncpg://")
-        return url
-    return ""
+    """Return async database URL for asyncpg driver."""
+    if not _is_postgres():
+        return ""
+    url = DATABASE_URL
+    # Ensure correct driver prefix
+    url = url.replace("postgresql://", "postgresql+asyncpg://")
+    url = url.replace("postgres://", "postgresql+asyncpg://")
+    # asyncpg requires already-decoded URL - decode %40 → @ etc.
+    from urllib.parse import unquote
+    # Only decode the password portion safely
+    if "postgresql+asyncpg://" in url:
+        url = url.replace("postgresql+asyncpg://", "")
+        parts = url.split("@", 1)
+        if len(parts) == 2:
+            credentials = unquote(parts[0])
+            host_part = parts[1]
+            url = f"postgresql+asyncpg://{credentials}@{host_part}"
+    return url
 
 
 def _sync_url() -> str:
-    """Return sync database URL."""
-    if _is_postgres():
-        url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+    """Return sync database URL for psycopg2 driver."""
+    if not _is_postgres():
+        return ""
+    url = DATABASE_URL
+    # psycopg2 handles %40 encoding fine, just ensure correct driver
+    if url.startswith("postgresql+asyncpg://"):
+        url = url.replace("postgresql+asyncpg://", "postgresql://")
+    elif url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://")
-        return url
-    return ""
+    return url
 
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:

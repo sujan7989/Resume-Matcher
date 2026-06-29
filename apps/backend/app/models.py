@@ -16,6 +16,26 @@ class Base(DeclarativeBase):
     pass
 
 
+def _resume_table_args() -> tuple:
+    if _IS_POSTGRES:
+        return (
+            Index(
+                "ux_resumes_single_master",
+                "is_master",
+                unique=True,
+                postgresql_where=text("is_master = TRUE"),
+            ),
+        )
+    return (
+        Index(
+            "ux_resumes_single_master",
+            "is_master",
+            unique=True,
+            sqlite_where=text("is_master = 1"),
+        ),
+    )
+
+
 class Resume(Base):
     __tablename__ = "resumes"
 
@@ -34,26 +54,7 @@ class Resume(Base):
     created_at: Mapped[str] = mapped_column(String, default=_utcnow_iso)
     updated_at: Mapped[str] = mapped_column(String, default=_utcnow_iso)
 
-    if _IS_POSTGRES:
-        # PostgreSQL: partial unique index with WHERE clause
-        __table_args__ = (
-            Index(
-                "ux_resumes_single_master",
-                "is_master",
-                unique=True,
-                postgresql_where=text("is_master = TRUE"),
-            ),
-        )
-    else:
-        # SQLite: partial unique index with sqlite_where
-        __table_args__ = (
-            Index(
-                "ux_resumes_single_master",
-                "is_master",
-                unique=True,
-                sqlite_where=text("is_master = 1"),
-            ),
-        )
+    __table_args__ = _resume_table_args()
 
 
 class Job(Base):

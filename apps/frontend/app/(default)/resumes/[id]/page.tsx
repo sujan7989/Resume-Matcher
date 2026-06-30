@@ -14,12 +14,17 @@ import {
   renameResume,
 } from '@/lib/api/resume';
 import { useStatusCache } from '@/lib/context/status-cache';
-import { ArrowLeft, Edit, Download, Loader2, AlertCircle, Sparkles, Pencil } from 'lucide-react';
+import { ArrowLeft, Edit, Download, Loader2, AlertCircle, Sparkles, Pencil, Settings2 } from 'lucide-react';
 import { EnrichmentModal } from '@/components/enrichment/enrichment-modal';
 import { useTranslations } from '@/lib/i18n';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 import { useLanguage } from '@/lib/context/language-context';
 import { downloadBlobAsFile, openUrlInNewTab, sanitizeFilename } from '@/lib/utils/download';
+import { FormattingControls } from '@/components/builder/formatting-controls';
+import {
+  type TemplateSettings,
+  DEFAULT_TEMPLATE_SETTINGS,
+} from '@/lib/types/template-settings';
 
 type ProcessingStatus = 'pending' | 'processing' | 'ready' | 'failed';
 
@@ -46,6 +51,9 @@ export default function ResumeViewerPage() {
   const [editingTitleValue, setEditingTitleValue] = useState('');
 
   const resumeId = params?.id as string;
+
+  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
+  const [showFormattingPanel, setShowFormattingPanel] = useState(false);
 
   const localizedResumeData = useMemo(() => {
     if (!resumeData) return null;
@@ -172,14 +180,14 @@ export default function ResumeViewerPage() {
   const handleDownload = async () => {
     setIsDownloading(true);
     try {
-      const blob = await downloadResumePdf(resumeId, undefined, uiLanguage);
+      const blob = await downloadResumePdf(resumeId, templateSettings, uiLanguage);
       const filename = sanitizeFilename(resumeTitle, resumeId, 'resume');
       downloadBlobAsFile(blob, filename);
       setShowDownloadSuccessDialog(true);
     } catch (err) {
       console.error('Failed to download resume:', err);
       if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
-        const fallbackUrl = getResumePdfUrl(resumeId, undefined, uiLanguage);
+        const fallbackUrl = getResumePdfUrl(resumeId, templateSettings, uiLanguage);
         const didOpen = openUrlInNewTab(fallbackUrl);
         if (!didOpen) {
           alert(t('common.popupBlocked', { url: fallbackUrl }));
@@ -305,6 +313,10 @@ export default function ResumeViewerPage() {
                 {t('resumeViewer.enhanceResume')}
               </Button>
             )}
+            <Button variant="outline" onClick={() => setShowFormattingPanel(p => !p)}>
+              <Settings2 className="w-4 h-4" />
+              Template & Format
+            </Button>
             <Button variant="outline" onClick={handleEdit}>
               <Edit className="w-4 h-4" />
               {t('dashboard.editResume')}
@@ -352,11 +364,23 @@ export default function ResumeViewerPage() {
           </div>
         )}
 
+        {/* Formatting Panel */}
+        {showFormattingPanel && (
+          <div className="mb-6 border-2 border-black bg-white p-4 no-print">
+            <FormattingControls
+              settings={templateSettings}
+              onChange={setTemplateSettings}
+            />
+          </div>
+        )}
+
         {/* Resume Viewer */}
         <div className="flex justify-center pb-4">
           <div className="resume-print w-full max-w-[250mm] shadow-sw-lg border-2 border-black bg-white">
             <Resume
               resumeData={localizedResumeData || resumeData}
+              template={templateSettings.template}
+              settings={templateSettings}
               additionalSectionLabels={{
                 technicalSkills: t('resume.additionalLabels.technicalSkills'),
                 languages: t('resume.additionalLabels.languages'),

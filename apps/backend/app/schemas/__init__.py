@@ -65,6 +65,25 @@ from app.schemas.applications import (
     BulkStatusUpdate,
     ManualApplicationCreate,
 )
+from app.schemas.ats import (
+    ATSAnalysisRequest,
+    ATSAnalysisResponse,
+    ATSAnalysisResult,
+    ATSScore,
+    ATSScoreBreakdown,
+    BulletQuality,
+    CriticalMissingSkill,
+    InterviewQuestion,
+    JobFitVerdict,
+    KeywordAnalysis,
+    MatchedKeyword,
+    MissingKeyword,
+    PartialMatchSkill,
+    ResumeIssue,
+    ResumeQuality,
+    SkillGap,
+    TailoringRecommendation,
+)
 
 __all__ = [
     "PersonalInfo",
@@ -128,4 +147,22 @@ __all__ = [
     "BulkStatusUpdate",
     "BulkDelete",
     "ApplicationActionResponse",
+    # ATS schemas
+    "ATSAnalysisRequest",
+    "ATSAnalysisResponse",
+    "ATSAnalysisResult",
+    "ATSScore",
+    "ATSScoreBreakdown",
+    "BulletQuality",
+    "CriticalMissingSkill",
+    "InterviewQuestion",
+    "JobFitVerdict",
+    "KeywordAnalysis",
+    "MatchedKeyword",
+    "MissingKeyword",
+    "PartialMatchSkill",
+    "ResumeIssue",
+    "ResumeQuality",
+    "SkillGap",
+    "TailoringRecommendation",
 ]

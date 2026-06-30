@@ -1,0 +1,481 @@
+================================================================================
+                  RESUME MATCHER — VISUAL DEPLOYMENT GUIDE
+================================================================================
+
+THE PROBLEM IN PICTURES
+================================================================================
+
+Before Fix (Broken ❌):
+
+┌─────────────────────────────────────────────────────────────┐
+│ User's Browser                                              │
+│ └─ Opens Vercel Frontend                                   │
+└────────────────────┬────────────────────────────────────────┘
+                     │ (Tries to upload resume)
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Vercel Frontend (Next.js)                                   │
+│ └─ Calls POST /api/v1/resumes/upload                       │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Render Backend (FastAPI)                                    │
+│ ├─ Receives request ✓                                      │
+│ ├─ Tries to connect to database ✗                          │
+│ │   └─ DATABASE_URL = undefined                            │
+│ │   └─ Falls back to SQLite                                │
+│ │   └─ SQLite file doesn't exist on ephemeral container    │
+│ ├─ Query fails                                             │
+│ └─ Returns 500 error                                       │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend receives: 500 Internal Server Error               │
+│ Shows to user: "Failed to load resume (status 404)"        │
+│ User sees: ❌ Broken system                                │
+└─────────────────────────────────────────────────────────────┘
+
+
+After Fix (Working ✅):
+
+┌─────────────────────────────────────────────────────────────┐
+│ User's Browser                                              │
+│ └─ Opens Vercel Frontend                                   │
+└────────────────────┬────────────────────────────────────────┘
+                     │ (Tries to upload resume)
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Vercel Frontend (Next.js)                                   │
+│ └─ Calls POST /api/v1/resumes/upload                       │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Render Backend (FastAPI)                                    │
+│ ├─ Receives request ✓                                      │
+│ ├─ Reads DATABASE_URL from environment ✓                   │
+│ ├─ Connects to Supabase PostgreSQL ✓                       │
+│ ├─ Executes INSERT query ✓                                 │
+│ ├─ Returns resume_id ✓                                     │
+│ └─ Response: 200 OK ✓                                      │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Supabase PostgreSQL Database                                │
+│ ├─ Receives INSERT request                                 │
+│ ├─ Stores resume data                                      │
+│ └─ Returns success                                         │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend receives: 200 OK with resume_id                   │
+│ Shows to user: Resume appears in "My Resumes" list ✓       │
+│ User sees: ✅ System working perfectly                     │
+└─────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                      THE FIX VISUALIZATION
+================================================================================
+
+Step 1: Open Render Dashboard
+┌──────────────────────────────────┐
+│ https://dashboard.render.com     │
+│                                  │
+│ [Your Resume Matcher Service]    │
+│ ├─ Deployments                   │
+│ ├─ Settings ← CLICK HERE         │
+│ ├─ Logs                          │
+│ └─ Metrics                       │
+└──────────────────────────────────┘
+
+
+Step 2: Navigate to Environment Variables
+┌──────────────────────────────────────────────────────────┐
+│ Settings Page                                            │
+│                                                          │
+│ Build Command    │ Start Command   │ Root Directory     │
+│ Environment      ← SCROLL DOWN TO HERE                  │
+│ Redirects        │ Custom Headers  │ Disk Size         │
+│ Notifications                                           │
+└──────────────────────────────────────────────────────────┘
+
+
+Step 3: Add First Environment Variable
+┌────────────────────────────────────────────────────────────┐
+│ Environment Variables                                      │
+│                                                            │
+│ ┌── Add Environment Variable ──────────────┐              │
+│ │                                          │              │
+│ │ Key:   DATABASE_URL                      │              │
+│ │ Value: postgresql://postgres:            │              │
+│ │        Sujankumar%40143@                 │              │
+│ │        aws-1-ap-southeast-1.pooler.      │              │
+│ │        supabase.com:6543/postgres        │              │
+│ │                                          │              │
+│ │ [Save] [Cancel]                          │              │
+│ └──────────────────────────────────────────┘              │
+└────────────────────────────────────────────────────────────┘
+
+
+Step 4: Add Second Environment Variable
+┌────────────────────────────────────────────────────────────┐
+│ Environment Variables                                      │
+│                                                            │
+│ DATABASE_URL = postgresql://postgres:...  ✓ Added        │
+│                                                            │
+│ ┌── Add Environment Variable ──────────────┐              │
+│ │                                          │              │
+│ │ Key:   CORS_ORIGINS                      │              │
+│ │ Value: ["https://resume-matcher-        │              │
+│ │        zeta.vercel.app"]                 │              │
+│ │                                          │              │
+│ │ [Save] [Cancel]                          │              │
+│ └──────────────────────────────────────────┘              │
+└────────────────────────────────────────────────────────────┘
+
+
+Step 5: Redeploy
+┌────────────────────────────────────────────────────────────┐
+│ Deployments Tab                                            │
+│                                                            │
+│ Latest Deployment:                                         │
+│ ├─ Deployment #42                                         │
+│ │  Status: Deployed ✓                                     │
+│ │  Build time: 2:34                                       │
+│ │  [More ⋯] ← CLICK HERE                                 │
+│ │                                                          │
+│ └─ Options Menu ────────────────────────────────────────┐│
+│    ├─ View Deployment                                  ││
+│    ├─ Redeploy ← SELECT THIS                          ││
+│    ├─ View Logs                                        ││
+│    └─ Cancel Deployment                               ││
+│    └────────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────┘
+
+
+Step 6: Monitor Build
+┌────────────────────────────────────────────────────────────┐
+│ Deployment #43 (Building...)                               │
+│                                                            │
+│ Status: In progress 🔄                                    │
+│                                                            │
+│ Logs:                                                      │
+│ ├─ Cloning repo...                    ✓                   │
+│ ├─ Installing dependencies...         ✓                   │
+│ ├─ Building Docker image...           ⏳                  │
+│ ├─ Pushing to registry...             ⏳                  │
+│ ├─ Deploying...                       ⏳                  │
+│ └─ Starting server...                 ⏳                  │
+│                                                            │
+│ Time elapsed: 2:15                                         │
+└────────────────────────────────────────────────────────────┘
+
+
+Step 7: Verify Success
+┌────────────────────────────────────────────────────────────┐
+│ Logs Show:                                                 │
+│                                                            │
+│ ✓ Database initialized successfully                       │
+│ ✓ Started server process                                  │
+│ ✓ Waiting for application startup                         │
+│ ✓ Application startup complete                            │
+│ ✓ Uvicorn running on http://0.0.0.0:8000                │
+│ ✓ Service is live 🎉                                     │
+│                                                            │
+│ Status: Running (green light) ✅                          │
+└────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                        TESTING WORKFLOW
+================================================================================
+
+Test 1: Health Check
+┌─────────────────────────────────────────────────────────────┐
+│ Browser Address Bar:                                        │
+│ https://resume-matcher-gw36.onrender.com/api/v1/health    │
+│                                                             │
+│ Expected Response:                                          │
+│ {                                                           │
+│   "status": "healthy"                                       │
+│ }                                                           │
+│                                                             │
+│ Status Code: 200 OK ✓                                      │
+│                                                             │
+│ If you see this: ✅ Database is working!                  │
+└─────────────────────────────────────────────────────────────┘
+
+
+Test 2: Upload Resume
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend (https://resume-matcher-zeta.vercel.app)          │
+│                                                             │
+│ 1. Click "Upload Resume"                                   │
+│    ↓                                                        │
+│ 2. Select PDF file                                         │
+│    ↓                                                        │
+│ 3. Wait for upload...                                      │
+│    └─ Check browser console (F12) for errors               │
+│    ↓                                                        │
+│ 4. Resume appears in "My Resumes" ✓                        │
+│    ↓                                                        │
+│ If you see this: ✅ Database inserts working!             │
+└─────────────────────────────────────────────────────────────┘
+
+
+Test 3: End-to-End Tailoring
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend (https://resume-matcher-zeta.vercel.app)          │
+│                                                             │
+│ 1. Upload resume (or select existing)                      │
+│    ↓                                                        │
+│ 2. Click "Add Job Description"                             │
+│    ↓                                                        │
+│ 3. Paste job posting                                       │
+│    ↓                                                        │
+│ 4. Click "Preview Tailoring"                               │
+│    └─ Should show preview with diffs ✓                     │
+│    ↓                                                        │
+│ 5. Click "Confirm Tailoring"                               │
+│    └─ New resume created in database ✓                     │
+│    ↓                                                        │
+│ 6. Click "Download PDF"                                    │
+│    └─ PDF downloads to computer ✓                          │
+│    ↓                                                        │
+│ 7. Check Application Tracker                               │
+│    └─ Shows "Applied" card ✓                               │
+│    ↓                                                        │
+│ If all work: ✅ Complete system operational!              │
+└─────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                    TROUBLESHOOTING FLOWCHART
+================================================================================
+
+Is health check working?
+│
+├─ YES: Go to → Test Upload Resume
+│
+└─ NO: Check DATABASE_URL
+       ├─ Is DATABASE_URL set in Render? 
+       │  └─ NO: Add it now and redeploy
+       │  └─ YES: Check next step
+       │
+       ├─ Does it have correct format?
+       │  └─ postgresql://user:pass@host:6543/db
+       │
+       ├─ Is password URL-encoded?
+       │  └─ @ should be %40
+       │  └─ # should be %23
+       │
+       └─ Check Render logs for exact error
+
+
+Can you upload resume?
+│
+├─ YES: Go to → Test Tailoring
+│
+└─ NO: Check console (F12) for error
+       ├─ CORS error?
+       │  └─ Add your frontend URL to CORS_ORIGINS
+       │
+       ├─ 404 error?
+       │  └─ Backend not running, check health
+       │
+       └─ Other error?
+           └─ Check Render logs for details
+
+
+Can you download PDF?
+│
+├─ YES: ✅ SYSTEM FULLY WORKING!
+│
+└─ NO: Check Render logs
+       ├─ Playwright error?
+       │  └─ Chromium installation issue
+       │
+       └─ Other error?
+           └─ Check browser console too
+
+
+================================================================================
+                      DATABASE CONNECTION FLOW
+================================================================================
+
+Without DATABASE_URL (BROKEN ❌):
+
+┌──────────────────┐
+│ Backend receives │
+│ request          │
+└────────┬─────────┘
+         │
+         ↓
+    Check for DATABASE_URL
+         │
+         └─ NOT FOUND ❌
+           │
+           ↓
+    Fallback to SQLite
+           │
+           ├─ Check /data/resume_matcher.db
+           │  │
+           │  └─ File doesn't exist on ephemeral container ❌
+           │
+           ↓
+    Query fails ❌
+           │
+           ↓
+    Return 500 error ❌
+
+
+With DATABASE_URL (WORKING ✅):
+
+┌──────────────────┐
+│ Backend receives │
+│ request          │
+└────────┬─────────┘
+         │
+         ↓
+    Check for DATABASE_URL
+         │
+         └─ FOUND ✓
+           │
+           ↓
+    Parse connection string
+           │
+           ↓
+    Connect to PostgreSQL
+           │
+           ├─ postgresql://...
+           ├─ postgres (user)
+           ├─ Sujankumar%40143 (password)
+           ├─ aws-1-ap-southeast-1.pooler.supabase.com (host)
+           ├─ 6543 (port — Session Pooler)
+           └─ postgres (database)
+           │
+           ↓
+    Connection successful ✓
+           │
+           ↓
+    Execute query
+           │
+           ↓
+    Return data ✓
+
+
+================================================================================
+                    DATA PERSISTENCE DIAGRAM
+================================================================================
+
+Before: Data NOT Persistent (BROKEN ❌)
+
+Session 1:          Session 2:           Session 3:
+│                   │                    │
+├─ Upload resume   ├─ Render restarts  ├─ Try to fetch
+│ (stored in RAM)  │ (container dies)   │   resume
+│                  │ (all RAM cleared)  │ (can't find it!)
+└─ Can query it    └─ Data lost!        └─ Returns 404 ❌
+
+
+After: Data PERSISTENT (WORKING ✅)
+
+Session 1:           Session 2:           Session 3:
+│                    │                    │
+├─ Upload resume    ├─ Render restarts   ├─ Try to fetch
+│ (stored in DB)    │ (container dies)   │   resume
+│ (persists!)       │ (Supabase intact)  │ (found in DB!)
+└─ Can query it     └─ Data still there! └─ Returns data ✓
+
+
+Database Location:
+Backend Container (ephemeral) → Not persistent ❌
+SQLite file (Container filesystem) → Lost on restart ❌
+Supabase PostgreSQL (Cloud) → Always available ✓
+
+
+================================================================================
+                    ENVIRONMENT VARIABLES
+================================================================================
+
+What Render Provides (auto-detected):
+┌────────────────────────────────────┐
+│ PORT          = 8000 (or Render's) │
+│ HOST          = 0.0.0.0            │
+│ PYTHONUNBUFFERED = 1               │
+└────────────────────────────────────┘
+
+
+What YOU Must Add:
+┌────────────────────────────────────────────────────────┐
+│ DATABASE_URL                                           │
+│ = postgresql://postgres:Sujankumar%40143@...         │
+│                                                        │
+│ CORS_ORIGINS                                          │
+│ = ["https://resume-matcher-zeta.vercel.app"]         │
+│                                                        │
+│ LLM_PROVIDER = groq (optional, default provided)     │
+│ LLM_API_KEY = gsk_... (optional, has default)        │
+│ LLM_MODEL = llama-3.3-70b-versatile (optional)       │
+└────────────────────────────────────────────────────────┘
+
+
+Values Flow:
+┌─────────────────────────────────────────────────────┐
+│ Render Dashboard Environment Variables              │
+│ (User enters values)                                │
+│         ↓                                           │
+│ Docker Container .env                              │
+│ (Environment variables injected at runtime)         │
+│         ↓                                           │
+│ Python os.environ.get()                            │
+│ (Code reads the variables)                         │
+│         ↓                                           │
+│ Backend Configuration                              │
+│ (Settings loaded from environment)                 │
+│         ↓                                           │
+│ Database Connection                                │
+│ (Backend connects using DATABASE_URL)              │
+│         ↓                                           │
+│ All APIs Working ✓                                 │
+└─────────────────────────────────────────────────────┘
+
+
+================================================================================
+                      SUCCESS = This Diagram:
+================================================================================
+
+        User Browser
+            ↓
+        Vercel Frontend ✓
+            ↓
+        Render Backend ✓
+            ↓
+        Supabase Database ✓ (DATABASE_URL configured)
+            ↓
+        All Data Persisted ✓
+            ↓
+        Resumes Upload/Tailor/Download ✓
+            ↓
+        System FULLY WORKING ✅
+
+
+================================================================================
+                        YOU'RE ALMOST DONE!
+================================================================================
+
+Just follow these 5 diagrams:
+1. The Problem (see what was broken)
+2. The Fix Steps (do what's shown)
+3. The Testing Workflow (verify it works)
+4. The Troubleshooting Flowchart (if issues)
+5. The Success Diagram (what it looks like when done)
+
+20 minutes later: ✅ System operational!
+
+================================================================================

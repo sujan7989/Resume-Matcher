@@ -53,7 +53,7 @@ export function CoverLetterPreview({
     >
       {/* Letter Content */}
       <div
-        className={cn('p-8 md:p-12', pageSize === 'A4' ? 'min-h-[297mm]' : 'min-h-[11in]')}
+        className={cn('p-8 md:p-12')}
         style={{
           maxWidth: pageSize === 'A4' ? '210mm' : '8.5in',
         }}

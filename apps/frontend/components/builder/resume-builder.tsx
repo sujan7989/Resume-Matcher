@@ -40,6 +40,8 @@ import {
   generateOutreachMessage,
   fetchJobDescription,
 } from '@/lib/api/resume';
+import { analyzeATSMatch, type ATSAnalysisResult } from '@/lib/api/ats';
+import { ATSScorePanel } from '@/components/ats/ats-score-panel';
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
 import { useRegenerateWizard } from '@/hooks/use-regenerate-wizard';
@@ -155,6 +157,12 @@ const ResumeBuilderContent = () => {
 
   // JD comparison state
   const [jobDescription, setJobDescription] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  // ATS analysis state
+  const [atsResult, setAtsResult] = useState<ATSAnalysisResult | null>(null);
+  const [isAnalyzingATS, setIsAnalyzingATS] = useState(false);
+  const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -370,17 +378,20 @@ const ResumeBuilderContent = () => {
           const data = await fetchJobDescription(resumeId);
           if (!cancelled) {
             setJobDescription(data.content);
+            setJobId(data.job_id);
           }
         } catch (err) {
           // JD might not be available for older resumes
           if (!cancelled) {
             console.warn('Could not fetch job description:', err);
             setJobDescription(null);
+            setJobId(null);
           }
         }
       } else {
         // Clear job description when switching to non-tailored resume
         setJobDescription(null);
+        setJobId(null);
       }
     };
 
@@ -602,6 +613,28 @@ const ResumeBuilderContent = () => {
     doGenerateOutreach();
   };
 
+  // ATS analysis handler
+  const handleAnalyzeATS = useCallback(async () => {
+    if (!resumeId || !jobId) return;
+    const cacheKey = `${resumeId}::${jobId}`;
+    // Use cached result if available for the same resume+job combination
+    if (atsCacheKey === cacheKey && atsResult) {
+      return;
+    }
+    setIsAnalyzingATS(true);
+    try {
+      const result = await analyzeATSMatch(resumeId, jobId);
+      setAtsResult(result);
+      setAtsCacheKey(cacheKey);
+    } catch (error) {
+      console.error('ATS analysis failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'ATS analysis failed';
+      showNotification(errorMessage, 'danger');
+    } finally {
+      setIsAnalyzingATS(false);
+    }
+  }, [resumeId, jobId, atsCacheKey, atsResult, showNotification]);
+
   return (
     <div className="h-screen w-full bg-background flex justify-center items-center p-4 md:p-8">
       {/* Main Container */}
@@ -807,6 +840,47 @@ const ResumeBuilderContent = () => {
                       {t('builder.jdMatch.aboutDescription')}
                     </p>
                   </div>
+
+                  {/* ATS Analysis Button */}
+                  {jobDescription && jobId && resumeId && (
+                    <div className="border-2 border-black bg-background p-4">
+                      <h3 className="font-mono text-sm font-bold uppercase mb-3">
+                        ATS Score Analysis
+                      </h3>
+                      <p className="text-sm text-ink-soft mb-3 leading-relaxed">
+                        Get a comprehensive ATS score, keyword gap analysis, skill gap report, and
+                        interview preparation tailored to this job.
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={handleAnalyzeATS}
+                        disabled={isAnalyzingATS}
+                        className="w-full"
+                      >
+                        {isAnalyzingATS ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : atsResult && atsCacheKey === `${resumeId}::${jobId}` ? (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            Re-analyze Match
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4" />
+                            Analyze ATS Match
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* ATS Results */}
+                  {atsResult && atsCacheKey === `${resumeId}::${jobId}` && (
+                    <ATSScorePanel result={atsResult} />
+                  )}
 
                   <div className="border-2 border-black bg-background p-4">
                     <h3 className="font-mono text-sm font-bold uppercase mb-2">

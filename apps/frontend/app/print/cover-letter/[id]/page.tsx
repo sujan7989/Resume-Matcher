@@ -100,7 +100,6 @@ export default async function PrintCoverLetterPage({ params, searchParams }: Pag
       className="cover-letter-print bg-white"
       style={{
         width: `${pageDims.width}mm`,
-        minHeight: `${pageDims.height}mm`,
         padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
         boxSizing: 'border-box',
         fontFamily: 'Georgia, serif',

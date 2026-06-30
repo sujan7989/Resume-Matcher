@@ -50,6 +50,7 @@ import { useLanguage } from '@/lib/context/language-context';
 import { buildResumeFilename, downloadBlobAsFile, openUrlInNewTab } from '@/lib/utils/download';
 import type { RegenerateItemInput } from '@/lib/api/enrichment';
 import { ATSScorePanel } from '@/components/ats/ats-score-panel';
+import { ManualJDInput } from '@/components/ats/manual-jd-input';
 import { analyzeATSMatch, type ATSAnalysisResult } from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
@@ -872,14 +873,14 @@ const ResumeBuilderContent = () => {
                     </ul>
                   </div>
 
-                  {/* ATS Analysis Section */}
-                  {isTailoredResume && jobId && (
+                  {/* ATS Analysis Section — works for all resumes */}
+                  {resumeId && (
                     <div className="border-2 border-black bg-white">
                       <div className="px-4 py-3 border-b-2 border-black bg-background flex items-center justify-between">
                         <h3 className="font-mono text-sm font-bold uppercase tracking-wider">
                           // ATS Score &amp; Analysis
                         </h3>
-                        {!atsResult && (
+                        {(jobId || jobDescription) && !atsResult && (
                           <Button
                             size="sm"
                             onClick={handleAnalyzeATS}
@@ -936,13 +937,29 @@ const ResumeBuilderContent = () => {
                         </div>
                       )}
 
-                      {!atsResult && !atsLoading && !atsError && (
-                        <div className="p-4 text-sm text-ink-soft">
-                          <p className="font-mono text-xs leading-relaxed">
-                            Get a real ATS score, keyword analysis, skill gap, interview
-                            questions and tailoring recommendations — all computed from your
-                            actual resume and this job description.
+                      {!atsResult && !atsLoading && !jobId && (
+                        <div className="p-4 space-y-3">
+                          <p className="font-mono text-xs text-ink-soft leading-relaxed">
+                            {jobDescription
+                              ? 'Job description loaded. Click Run Analysis above.'
+                              : 'No job description linked. To analyze ATS match, first tailor this resume to a job, or paste a job description below.'}
                           </p>
+                          {!jobDescription && (
+                            <ManualJDInput
+                              resumeId={resumeId}
+                              onJobSaved={(id, content) => {
+                                setJobId(id);
+                                setJobDescription(content);
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {!atsResult && !atsLoading && !atsError && (jobId || jobDescription) && (
+                        <div className="px-4 pb-4 text-xs font-mono text-ink-soft leading-relaxed">
+                          Get real ATS score, keyword gaps, skill analysis, interview questions
+                          and tailoring recommendations.
                         </div>
                       )}
                     </div>
@@ -972,7 +989,6 @@ const ResumeBuilderContent = () => {
                   {
                     id: 'jd-match',
                     label: t('builder.previewTabs.jdMatch'),
-                    disabled: !jobDescription,
                   },
                 ]}
                 activeTab={activeTab}
@@ -1027,6 +1043,17 @@ const ResumeBuilderContent = () => {
               {/* JD Match Comparison */}
               {activeTab === 'jd-match' && jobDescription && (
                 <JDComparisonView jobDescription={jobDescription} resumeData={resumeData} />
+              )}
+              {activeTab === 'jd-match' && !jobDescription && (
+                <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
+                  <div className="border-2 border-black bg-background p-6 max-w-sm w-full">
+                    <p className="font-mono text-sm font-bold uppercase mb-2">// JD Match</p>
+                    <p className="text-xs text-ink-soft leading-relaxed">
+                      Paste a job description in the left panel to see keyword
+                      highlights and run ATS analysis.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -230,29 +230,26 @@ CRITICAL_TRUTHFULNESS_RULES = {
     ),
 }
 
-IMPROVE_RESUME_PROMPT_NUDGE = """Lightly nudge this resume toward the job description. Output ONLY the JSON object, no other text.
+IMPROVE_RESUME_PROMPT_NUDGE = """Lightly rephrase this resume toward the job description. Output ONLY the JSON object, no other text.
 
 {critical_truthfulness_rules}
 
-IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_language}.
-Do NOT include personalInfo in your output - it will be preserved from the original resume.
+IMPORTANT: Generate ALL text content in {output_language}.
+Do NOT include personalInfo in your output.
 
-Rules:
-- Make minimal, conservative edits only where there is a clear existing match
-- Do NOT change the candidate's role, industry, or seniority level
-- Do NOT introduce new tools, technologies, or certifications not already present
-- Do NOT add new bullet points or sections
-- Preserve original bullet count and ordering within each section
-- Keep proper nouns (names, company names, locations) unchanged
-- For customSections: preserve exact structure, item count, titles, subtitles, and years. If an item's description is an empty array [] in the original, keep it empty []. Do NOT generate descriptions for items that had none.
-- Copy the "years" field values EXACTLY as they appear in the original resume (including any month prefixes like "Jan 2020 - Present"). Do not shorten, reformat, or drop months.
-- If the resume is non-technical, do NOT add technical jargon
-- Do NOT use em dash ("—") anywhere in the writing/output, even if it exists, remove it
+WHAT "LIGHT NUDGE" MEANS:
+- Find existing bullet points and summary phrases that already describe work matching JD keywords
+- Rephrase ONLY those phrases using the JD's exact terminology
+- Example: resume says "tested web apps" → JD says "QA testing" → rephrase to "performed QA testing on web applications"
+- Do NOT add new bullet points, new sections, or new skills
+- Do NOT reorder sections or projects
+- Do NOT change the job title, summary structure, or overall tone
+- Touch the absolute minimum number of words needed to surface the match
 
 Job Description:
 {job_description}
 
-Keywords to emphasize (only if already supported by resume content):
+JD Keywords (use only where resume already supports them):
 {job_keywords}
 
 Original Resume:
@@ -261,37 +258,26 @@ Original Resume:
 Output in this JSON format:
 {schema}"""
 
-IMPROVE_RESUME_PROMPT_KEYWORDS = """Enhance this resume with relevant keywords from the job description. AGGRESSIVELY highlight the primary skills and role match. Output ONLY the JSON object, no other text.
+IMPROVE_RESUME_PROMPT_KEYWORDS = """Enhance this resume with JD keywords. Output ONLY the JSON object, no other text.
 
 {critical_truthfulness_rules}
 
-IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_language}.
-Do NOT include personalInfo in your output - it will be preserved from the original resume.
+IMPORTANT: Generate ALL text content in {output_language}.
+Do NOT include personalInfo in your output.
 
-CRITICAL INSTRUCTIONS:
-1. The target job is described in the job description below - ensure the resume is reframed toward this role
-2. PRIORITIZE keywords the resume already has evidence for - surface them prominently in summary, experience, and projects
-3. Reorder technical skills to put JD-matching skills FIRST
-4. Reorder projects and work experience to show the most JD-relevant items first
-5. Rewrite the summary to explicitly connect the candidate's background to the target role using transferable language
-6. Add specific methodologies from the JD (testing, debugging, version control, documentation) to experience descriptions where the resume already demonstrates them
-7. Where the resume shows a transferable skill (e.g., "debugging" matches JD's "debugging failures"), rephrase using the JD's exact terminology
-8. If the candidate has Python/scripting skills and the JD mentions scripting, surface this connection strongly in summary and experience
-
-Rules:
-- Strengthen alignment by weaving in relevant keywords where evidence already exists
-- You may rephrase bullet points to include keyword phrasing and job-specific language
-- Do NOT introduce new skills, tools, or certifications not in the resume
-- For customSections: preserve exact structure, item count, titles, subtitles, and years
-- Copy the "years" field values EXACTLY as they appear in the original resume
-- Do NOT use em dash ("—") anywhere
-- REORDER workExperience and personalProjects arrays so most relevant items appear first
-- Write a compelling summary that acknowledges the candidate's background while drawing explicit bridges to the target role requirements
+WHAT "KEYWORD ENHANCE" MEANS — execute ALL steps:
+1. SUMMARY: Rewrite to include 3-5 exact keywords from the JD that the resume already supports. Mention the target role or domain explicitly.
+2. TECHNICAL SKILLS: Reorder technicalSkills so JD-matching skills appear FIRST. Do not add new skills not in the resume.
+3. EXPERIENCE: Reorder workExperience so the most JD-relevant role appears first. Rephrase existing bullets using JD terminology where the resume already demonstrates that skill.
+4. PROJECTS: Reorder personalProjects so the most JD-relevant projects appear first. Rephrase project bullets to surface JD keyword matches.
+5. Do NOT add new bullet points, new skills, or fabricate metrics.
+6. Keep all dates, company names, institutions exactly as in the original.
+7. Do NOT use em dash anywhere.
 
 Job Description:
 {job_description}
 
-Keywords to emphasize (in priority order):
+JD Keywords (in priority order — surface these wherever resume already supports them):
 {job_keywords}
 
 Original Resume:
@@ -300,30 +286,27 @@ Original Resume:
 Output in this JSON format:
 {schema}"""
 
-IMPROVE_RESUME_PROMPT_FULL = """Tailor this resume for the job. Output ONLY the JSON object, no other text.
+IMPROVE_RESUME_PROMPT_FULL = """Fully tailor this resume for the job description. Output ONLY the JSON object, no other text.
 
 {critical_truthfulness_rules}
 
-IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_language}.
-Do NOT include personalInfo in your output - it will be preserved from the original resume.
+IMPORTANT: Generate ALL text content in {output_language}.
+Do NOT include personalInfo in your output.
 
-Rules:
-- Make targeted adjustments to bullet points to align with job description phrasing
-- WHERE the candidate has a transferable skill, rephrase to use the JD's exact terminology (e.g., if they "tested code" and JD says "debugging failures", use "debugging" language)
-- Reorder skills, projects, and experience to prioritize JD-relevant items first
-- Rewrite summary to explicitly bridge the candidate's background to the target role
-- DO NOT invent new information or skills not present in the original resume
-- Preserve existing action verbs and facts; adjust phrasing not substance
-- Keep proper nouns (names, company names, locations) unchanged
-- For customSections: preserve exact structure, item count, titles, subtitles, and years
-- Copy the "years" field values EXACTLY as they appear in the original resume
-- Do NOT use em dash ("—") anywhere in the writing/output
-- Surface every matching keyword the resume already supports in its most visible locations (summary first, then experience, then projects)
+WHAT "FULL TAILOR" MEANS — execute ALL steps:
+1. SUMMARY: Completely rewrite to target this specific role. Open with the job title or domain. Include 5+ JD keywords the resume supports. Connect the candidate's background directly to the role's requirements.
+2. TECHNICAL SKILLS: Reorder so JD-critical skills appear first. Add any JD skill already demonstrated in experience but missing from the skills list.
+3. EXPERIENCE: Reorder roles by JD relevance. Rewrite every bullet that relates to a JD keyword using the JD's terminology. Add 1 new bullet per role ONLY to expand on existing work (not to invent new work).
+4. PROJECTS: Reorder by JD relevance. Rewrite project descriptions to use JD terminology where the project already demonstrates that skill.
+5. CERTIFICATIONS/AWARDS: Keep all. Reorder to put JD-relevant ones first.
+6. Keep all dates, company names, institutions exactly as in original.
+7. Do NOT fabricate metrics, tools, or experience that doesn't exist.
+8. Do NOT use em dash anywhere.
 
 Job Description:
 {job_description}
 
-Keywords to emphasize:
+JD Keywords (incorporate all that the resume already supports):
 {job_keywords}
 
 Original Resume:
@@ -335,18 +318,18 @@ Output in this JSON format:
 IMPROVE_PROMPT_OPTIONS = [
     {
         "id": "nudge",
-        "label": "Light nudge",
-        "description": "Minimal edits to better align existing experience.",
+        "label": "Light Nudge",
+        "description": "Rephrase existing bullets using JD language. No new content added. Safest option.",
     },
     {
         "id": "keywords",
-        "label": "Keyword enhance",
-        "description": "Blend in relevant keywords without changing role or scope.",
+        "label": "Keyword Enhance",
+        "description": "Inject JD keywords into summary & skills, reorder sections by relevance. Moderate changes.",
     },
     {
         "id": "full",
-        "label": "Full tailor",
-        "description": "Comprehensive tailoring using the job description.",
+        "label": "Full Tailor",
+        "description": "Rewrite summary for the role, align all sections with JD, optimize skills order. Maximum impact.",
     },
 ]
 
@@ -429,9 +412,9 @@ RESUME_SCHEMA = RESUME_SCHEMA_EXAMPLE
 # Diff-based improvement: outputs targeted changes instead of full resume
 
 DIFF_STRATEGY_INSTRUCTIONS = {
-    "nudge": "Make minimal edits. Only rephrase where there is a clear match. Do not add new bullet points.",
-    "keywords": "Weave in relevant keywords where evidence already exists. You may rephrase bullets but do not add new ones.",
-    "full": "Make targeted adjustments. You may rephrase bullets, add verified JD skills, and add new bullets that elaborate on existing work, but do not invent new responsibilities.",
+    "nudge": "Rephrase existing content only using JD terminology. Do not add new bullet points, skills, or sections. Touch minimum words.",
+    "keywords": "Rewrite summary with JD keywords, reorder skills/projects/experience by relevance, rephrase bullets using JD language. Do not add new bullets.",
+    "full": "Rewrite summary entirely for the role, reorder all sections by relevance, rephrase all matching bullets using JD language, add 1 new bullet per role to expand existing work only.",
 }
 
 SKILL_TARGET_PLAN_PROMPT = """Build a concise skill target plan for tailoring this resume to the job.

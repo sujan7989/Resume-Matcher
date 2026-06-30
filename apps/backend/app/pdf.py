@@ -370,6 +370,7 @@ async def render_resume_pdf(
                         format="A4" if page_size == "A4" else "Letter",
                         print_background=True,
                         margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                        prefer_css_page_size=True,
                     )
                     logger.info(f"Playwright PDF: {len(pdf_bytes)} bytes")
                     return pdf_bytes

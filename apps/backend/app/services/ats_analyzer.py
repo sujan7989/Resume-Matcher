@@ -7,7 +7,6 @@ No fake data, no hardcoded scores. Every number is derived from content.
 import json
 import logging
 from datetime import datetime, timezone
-from uuid import uuid4
 
 from app.llm import complete_json, get_llm_config
 from app.prompts.ats_analysis import ATS_ANALYSIS_PROMPT
@@ -233,10 +232,10 @@ async def analyze_resume_against_job(
     logger.info("Running ATS analysis for resume=%s job=%s", resume_id, job_id)
 
     raw = await complete_json(
-        config=config,
         prompt=prompt,
-        temperature=0.1,  # Low temperature for consistent, accurate analysis
+        config=config,
         max_tokens=4000,
+        schema_type="enrichment",  # closest schema type for JSON parsing
     )
 
     if not raw:

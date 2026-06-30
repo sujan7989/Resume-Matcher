@@ -49,6 +49,8 @@ import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 import { useLanguage } from '@/lib/context/language-context';
 import { buildResumeFilename, downloadBlobAsFile, openUrlInNewTab } from '@/lib/utils/download';
 import type { RegenerateItemInput } from '@/lib/api/enrichment';
+import { ATSScorePanel } from '@/components/ats/ats-score-panel';
+import { analyzeATSMatch, type ATSAnalysisResult } from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
 
@@ -155,6 +157,13 @@ const ResumeBuilderContent = () => {
 
   // JD comparison state
   const [jobDescription, setJobDescription] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+
+  // ATS Analysis state
+  const [atsResult, setAtsResult] = useState<ATSAnalysisResult | null>(null);
+  const [atsLoading, setAtsLoading] = useState(false);
+  const [atsError, setAtsError] = useState<string | null>(null);
+  const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -370,6 +379,7 @@ const ResumeBuilderContent = () => {
           const data = await fetchJobDescription(resumeId);
           if (!cancelled) {
             setJobDescription(data.content);
+            setJobId(data.job_id);
           }
         } catch (err) {
           // JD might not be available for older resumes
@@ -600,6 +610,25 @@ const ResumeBuilderContent = () => {
       return;
     }
     doGenerateOutreach();
+  };
+
+  // ATS Analysis handler — caches result per resume+job pair
+  const handleAnalyzeATS = async () => {
+    if (!resumeId || !jobId) return;
+    const cacheKey = `${resumeId}:${jobId}`;
+    if (atsCacheKey === cacheKey && atsResult) return;
+    setAtsLoading(true);
+    setAtsError(null);
+    try {
+      const result = await analyzeATSMatch(resumeId, jobId);
+      setAtsResult(result);
+      setAtsCacheKey(cacheKey);
+    } catch (err) {
+      console.error('ATS analysis failed:', err);
+      setAtsError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+    } finally {
+      setAtsLoading(false);
+    }
   };
 
   return (
@@ -842,6 +871,82 @@ const ResumeBuilderContent = () => {
                       <li>{t('builder.jdMatch.tips.items.matchActionVerbs')}</li>
                     </ul>
                   </div>
+
+                  {/* ATS Analysis Section */}
+                  {isTailoredResume && jobId && (
+                    <div className="border-2 border-black bg-white">
+                      <div className="px-4 py-3 border-b-2 border-black bg-background flex items-center justify-between">
+                        <h3 className="font-mono text-sm font-bold uppercase tracking-wider">
+                          // ATS Score &amp; Analysis
+                        </h3>
+                        {!atsResult && (
+                          <Button
+                            size="sm"
+                            onClick={handleAnalyzeATS}
+                            disabled={atsLoading}
+                          >
+                            {atsLoading ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                Analyzing...
+                              </>
+                            ) : (
+                              'Run Analysis'
+                            )}
+                          </Button>
+                        )}
+                        {atsResult && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setAtsResult(null);
+                              setAtsCacheKey(null);
+                              handleAnalyzeATS();
+                            }}
+                            disabled={atsLoading}
+                          >
+                            {atsLoading ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              'Re-analyze'
+                            )}
+                          </Button>
+                        )}
+                      </div>
+
+                      {atsError && (
+                        <div className="p-4 text-sm text-red-700 bg-red-50 border-b-2 border-black">
+                          {atsError}
+                        </div>
+                      )}
+
+                      {atsLoading && !atsResult && (
+                        <div className="p-6 flex flex-col items-center gap-3 text-ink-soft">
+                          <Loader2 className="w-6 h-6 animate-spin text-blue-700" />
+                          <p className="font-mono text-xs uppercase tracking-wide">
+                            Analyzing resume against job description...
+                          </p>
+                        </div>
+                      )}
+
+                      {atsResult && !atsLoading && (
+                        <div className="p-4">
+                          <ATSScorePanel result={atsResult} />
+                        </div>
+                      )}
+
+                      {!atsResult && !atsLoading && !atsError && (
+                        <div className="p-4 text-sm text-ink-soft">
+                          <p className="font-mono text-xs leading-relaxed">
+                            Get a real ATS score, keyword analysis, skill gap, interview
+                            questions and tailoring recommendations — all computed from your
+                            actual resume and this job description.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -269,23 +269,24 @@ IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_
 Do NOT include personalInfo in your output - it will be preserved from the original resume.
 
 CRITICAL INSTRUCTIONS:
-1. The job role is "{job_description}" - ensure the resume reflects this role clearly
-2. PRIORITIZE the first keyword (usually the main language/skill) - mention it in summary, experience, and projects
-3. Reorder projects to show relevant ones first (prioritize projects using the main skill)
-4. Rewrite the freelance/experience section title to match the job title when possible
-5. Add specific methodologies (agile, testing, debugging, version control) to experience descriptions
-6. Make summary explicitly mention the target role ("Custom Software Engineer", etc)
+1. The target job is described in the job description below - ensure the resume is reframed toward this role
+2. PRIORITIZE keywords the resume already has evidence for - surface them prominently in summary, experience, and projects
+3. Reorder technical skills to put JD-matching skills FIRST
+4. Reorder projects and work experience to show the most JD-relevant items first
+5. Rewrite the summary to explicitly connect the candidate's background to the target role using transferable language
+6. Add specific methodologies from the JD (testing, debugging, version control, documentation) to experience descriptions where the resume already demonstrates them
+7. Where the resume shows a transferable skill (e.g., "debugging" matches JD's "debugging failures"), rephrase using the JD's exact terminology
+8. If the candidate has Python/scripting skills and the JD mentions scripting, surface this connection strongly in summary and experience
 
 Rules:
 - Strengthen alignment by weaving in relevant keywords where evidence already exists
 - You may rephrase bullet points to include keyword phrasing and job-specific language
 - Do NOT introduce new skills, tools, or certifications not in the resume
-- Do NOT change fundamental role or industry unless the job description explicitly requires it
-- For customSections: preserve exact structure, item count, titles, subtitles, and years. If an item's description is an empty array [] in the original, keep it empty []. Do NOT generate descriptions for items that had none.
-- Copy the "years" field values EXACTLY as they appear in the original resume (including any month prefixes like "Jan 2020 - Present"). Do not shorten, reformat, or drop months.
-- If resume is non-technical, keep language non-technical while still aligning keywords
-- Do NOT use em dash ("—") anywhere in the writing/output, even if it exists, remove it
+- For customSections: preserve exact structure, item count, titles, subtitles, and years
+- Copy the "years" field values EXACTLY as they appear in the original resume
+- Do NOT use em dash ("—") anywhere
 - REORDER workExperience and personalProjects arrays so most relevant items appear first
+- Write a compelling summary that acknowledges the candidate's background while drawing explicit bridges to the target role requirements
 
 Job Description:
 {job_description}
@@ -307,16 +308,17 @@ IMPORTANT: Generate ALL text content (summary, descriptions, skills) in {output_
 Do NOT include personalInfo in your output - it will be preserved from the original resume.
 
 Rules:
-- Make targeted adjustments to bullet points to align with job description phrasing. Preserve the candidate's original details and voice - adjust wording, do not rewrite entirely.
-- DO NOT invent new information
-- Preserve existing action verbs. Do not invent quantifiable achievements not in the original.
+- Make targeted adjustments to bullet points to align with job description phrasing
+- WHERE the candidate has a transferable skill, rephrase to use the JD's exact terminology (e.g., if they "tested code" and JD says "debugging failures", use "debugging" language)
+- Reorder skills, projects, and experience to prioritize JD-relevant items first
+- Rewrite summary to explicitly bridge the candidate's background to the target role
+- DO NOT invent new information or skills not present in the original resume
+- Preserve existing action verbs and facts; adjust phrasing not substance
 - Keep proper nouns (names, company names, locations) unchanged
-- Translate job titles, descriptions, and skills to {output_language}
-- For customSections: preserve exact structure, item count, titles, subtitles, and years. If an item's description is an empty array [] in the original, keep it empty []. Do NOT generate descriptions for items that had none.
-- Improve custom section content the same way as standard sections
-- Copy the "years" field values EXACTLY as they appear in the original resume (including any month prefixes like "Jan 2020 - Present"). Do not shorten, reformat, or drop months.
-- Calculate and emphasize total relevant experience duration when it matches requirements
-- Do NOT use em dash ("—") anywhere in the writing/output, even if it exists, remove it
+- For customSections: preserve exact structure, item count, titles, subtitles, and years
+- Copy the "years" field values EXACTLY as they appear in the original resume
+- Do NOT use em dash ("—") anywhere in the writing/output
+- Surface every matching keyword the resume already supports in its most visible locations (summary first, then experience, then projects)
 
 Job Description:
 {job_description}

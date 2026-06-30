@@ -63,30 +63,32 @@ def _parse_db_components() -> dict:
 
 def _make_async_pg_url() -> str:
     """Build asyncpg URL from DATABASE_URL components."""
-    from sqlalchemy.engine.url import URL
     c = _parse_db_components()
-    return str(URL.create(
-        drivername="postgresql+asyncpg",
-        username=c["username"],
-        password=c["password"],
-        host=c["host"],
-        port=c["port"],
-        database=c["database"],
-    ))
+    import logging
+    logging.getLogger(__name__).info(
+        "DB async: user=%r host=%r port=%r db=%r",
+        c["username"], c["host"], c["port"], c["database"]
+    )
+    # Build URL manually — avoids SQLAlchemy URL.create() mangling usernames with dots
+    from urllib.parse import quote
+    user = quote(c["username"], safe="")
+    pwd = quote(c["password"], safe="")
+    return f"postgresql+asyncpg://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
 
 
 def _make_sync_pg_url() -> str:
     """Build psycopg2 URL from DATABASE_URL components."""
-    from sqlalchemy.engine.url import URL
     c = _parse_db_components()
-    return str(URL.create(
-        drivername="postgresql+psycopg2",
-        username=c["username"],
-        password=c["password"],
-        host=c["host"],
-        port=c["port"],
-        database=c["database"],
-    ))
+    import logging
+    logging.getLogger(__name__).info(
+        "DB sync: user=%r host=%r port=%r db=%r",
+        c["username"], c["host"], c["port"], c["database"]
+    )
+    # Build URL manually — avoids SQLAlchemy URL.create() mangling usernames with dots
+    from urllib.parse import quote
+    user = quote(c["username"], safe="")
+    pwd = quote(c["password"], safe="")
+    return f"postgresql+psycopg2://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
 
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:

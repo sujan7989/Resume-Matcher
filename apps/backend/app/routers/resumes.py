@@ -1490,6 +1490,7 @@ async def download_resume_pdf(
     compactMode: bool = Query(False),
     showContactIcons: bool = Query(False),
     accentColor: str = Query("blue", pattern="^(blue|green|orange|red)$"),
+    maxPages: int = Query(1, ge=1, le=2),
     lang: str | None = Query(None, pattern="^[a-z]{2}(-[A-Z]{2})?$"),
 ) -> Response:
     """Generate a PDF for a resume using headless Chromium.
@@ -1534,6 +1535,7 @@ async def download_resume_pdf(
         f"&compactMode={str(compactMode).lower()}"
         f"&showContactIcons={str(showContactIcons).lower()}"
         f"&accentColor={accentColor}"
+        f"&maxPages={maxPages}"
     )
     if lang:
         params = f"{params}&lang={lang}"
@@ -1549,7 +1551,7 @@ async def download_resume_pdf(
     try:
         pdf_bytes = await render_resume_pdf(
             url, pageSize, margins=pdf_margins, resume_data=resume_data,
-            template=template,
+            template=template, max_pages=maxPages,
         )
     except PDFRenderError as e:
         logger.error(f"PDF Render Error for resume {resume_id}: {e}")

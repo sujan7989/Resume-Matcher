@@ -49,9 +49,10 @@ export interface TemplateSettings {
   margins: MarginSettings;
   spacing: SpacingSettings;
   fontSize: FontSizeSettings;
-  compactMode: boolean; // Apply tighter spacing across the board
-  showContactIcons: boolean; // Show icons next to contact info
-  accentColor: AccentColor; // Accent color for Modern template
+  compactMode: boolean;
+  showContactIcons: boolean;
+  accentColor: AccentColor;
+  maxPages: 1 | 2; // Target page count: 1 or 2 pages
 }
 
 /**
@@ -66,6 +67,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   compactMode: false,
   showContactIcons: false,
   accentColor: 'blue',
+  maxPages: 1,
 };
 
 /**
@@ -214,38 +216,38 @@ export interface TemplateInfo {
 export const TEMPLATE_OPTIONS: TemplateInfo[] = [
   {
     id: 'swiss-single',
-    name: 'Single Column',
-    description: 'Traditional full-width layout with maximum content density',
+    name: 'FAANGPath ATS',
+    description: 'Clean single-column ATS-optimized layout used by FAANG applicants',
   },
   {
     id: 'swiss-two-column',
-    name: 'Two Column',
-    description: 'Experience-focused main column with sidebar for skills',
+    name: 'Deedy',
+    description: 'Two-column layout with left sidebar — popular for CS/engineering roles',
   },
   {
     id: 'modern',
-    name: 'Modern',
-    description: 'Colorful accents with customizable theme colors',
+    name: 'RenderCV Blue',
+    description: 'Modern blue-accented layout with colorful section headers',
   },
   {
     id: 'modern-two-column',
-    name: 'Modern Two Column',
-    description: 'Two-column layout with modern colorful accents and themes',
+    name: 'Harvard Classic',
+    description: 'Two-column layout with professional blue accents and Harvard-style formatting',
   },
   {
     id: 'latex',
-    name: 'LaTeX',
-    description: 'Classic serif academic layout with ruled section headers',
+    name: 'RenderCV Classic',
+    description: 'Classic serif academic layout matching RenderCV\'s clean style',
   },
   {
     id: 'clean',
-    name: 'Clean',
-    description: 'Minimal sans layout with large understated section headers',
+    name: "Jake's Resume",
+    description: 'Minimal single-column layout — the most popular ATS template on Overleaf',
   },
   {
     id: 'vivid',
-    name: 'Vivid',
-    description: 'Colorful two-column layout with accent headers and arrow bullets',
+    name: 'Academic',
+    description: 'Left-aligned academic CV style with structured category labels',
   },
 ];
 

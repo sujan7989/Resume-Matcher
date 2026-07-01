@@ -275,6 +275,31 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
             </div>
           </div>
 
+          {/* Page Count Selection */}
+          <div>
+            <h4 className="font-mono text-xs font-bold uppercase tracking-wider mb-3 text-ink-soft">
+              TARGET PAGES
+            </h4>
+            <div className="flex gap-2">
+              {([1, 2] as const).map((pages) => (
+                <button
+                  key={pages}
+                  onClick={() => onChange({ ...settings, maxPages: pages })}
+                  className={`flex-1 px-3 py-2 border font-mono text-xs transition-all ${
+                    (settings.maxPages ?? 1) === pages
+                      ? 'border-blue-700 bg-white text-blue-700 shadow-[2px_2px_0px_0px_#1D4ED8]'
+                      : 'border-black bg-white text-ink-soft hover:bg-paper-tint'
+                  }`}
+                >
+                  <div className="font-bold">{pages} {pages === 1 ? 'Page' : 'Pages'}</div>
+                  <div className="text-[9px] opacity-70">
+                    {pages === 1 ? 'Compact — ATS preferred' : 'Detailed — senior roles'}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Margins Section */}
           <div>
             <h4 className="font-mono text-xs font-bold uppercase tracking-wider mb-3 text-ink-soft">

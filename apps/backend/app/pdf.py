@@ -339,12 +339,15 @@ async def render_resume_pdf(
     margins: Optional[dict] = None,
     resume_data: Optional[dict] = None,
     template: str = "swiss-single",
+    max_pages: int = 1,
 ) -> bytes:
     """Generate PDF from resume data.
     
     1. Build HTML from resume JSON (no network calls)
     2. Try Playwright to render that HTML -> high-quality PDF matching the template
     3. Fall back to fpdf2 if Playwright is unavailable
+    
+    max_pages: 1 = compact single page (preferred for ATS), 2 = allow two pages
     """
     margins = margins or {"top": 12, "bottom": 12, "left": 18, "right": 18}
     data = resume_data or {}
@@ -360,18 +363,28 @@ async def render_resume_pdf(
                 from playwright.async_api import Error as PlaywrightError
                 page = await _browser_instance.new_page()
                 try:
-                    logger.info(f"Playwright: rendering HTML template={template}")
+                    logger.info(f"Playwright: rendering HTML template={template} max_pages={max_pages}")
                     await page.set_content(html, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
                     try:
                         await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
                     except Exception:
                         pass
-                    pdf_bytes = await page.pdf(
-                        format="A4" if page_size == "A4" else "Letter",
-                        print_background=True,
-                        margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
-                        prefer_css_page_size=True,
-                    )
+
+                    if max_pages == 1:
+                        # Single page: use prefer_css_page_size so content fits naturally
+                        pdf_bytes = await page.pdf(
+                            format="A4" if page_size == "A4" else "Letter",
+                            print_background=True,
+                            margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                            prefer_css_page_size=True,
+                        )
+                    else:
+                        # Two pages: standard format rendering, allow overflow to page 2
+                        pdf_bytes = await page.pdf(
+                            format="A4" if page_size == "A4" else "Letter",
+                            print_background=True,
+                            margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                        )
                     logger.info(f"Playwright PDF: {len(pdf_bytes)} bytes")
                     return pdf_bytes
                 finally:

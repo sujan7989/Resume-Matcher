@@ -13,8 +13,6 @@ services:
         value: groq
       - key: LLM_MODEL
         value: llama-3.3-70b-versatile
-      - key: LLM_API_KEY
-        value: gsk_j8qTp2S9pEGCtJx6h9ozWGdyb3FYS3FI6wnt315UsX1Apw67byxmgroq
       - key: FRONTEND_BASE_URL
         value: https://resume-matcher-zeta.vercel.app
       - key: CORS_ORIGINS
@@ -23,3 +21,4 @@ services:
         value: INFO
       - key: REQUEST_TIMEOUT_SECONDS
         value: "240"
+      # DATABASE_URL and LLM_API_KEY must be set in the Render dashboard (not here)

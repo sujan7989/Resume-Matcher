@@ -33,6 +33,7 @@ type PageProps = {
     compactMode?: string;
     showContactIcons?: string;
     accentColor?: string;
+    maxPages?: string;
     lang?: string;
   }>;
 };
@@ -237,6 +238,7 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
       DEFAULT_TEMPLATE_SETTINGS.showContactIcons
     ),
     accentColor: parseAccentColor(resolvedSearchParams?.accentColor),
+    maxPages: (resolvedSearchParams?.maxPages === '2' ? 2 : 1) as 1 | 2,
   };
 
   // Note: Margins are applied by Playwright's PDF renderer (not here)

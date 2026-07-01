@@ -14,6 +14,7 @@ interface TemplateSelectorProps {
  *
  * Visual thumbnail buttons for selecting resume templates.
  * Swiss design: Square corners, high contrast, monospace labels.
+ * Templates: FAANGPath ATS, Deedy, RenderCV Blue, Harvard Classic, RenderCV Classic, Jake's Resume, Academic
  */
 export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ value, onChange }) => {
   const { t } = useTranslations();

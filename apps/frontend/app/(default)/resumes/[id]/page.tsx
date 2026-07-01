@@ -52,7 +52,21 @@ export default function ResumeViewerPage() {
 
   const resumeId = params?.id as string;
 
-  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
+  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(() => {
+    // Load saved template settings from builder (same key)
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('resume_builder_settings');
+        if (saved) {
+          const parsed = JSON.parse(saved) as TemplateSettings;
+          if (parsed.template) return { ...DEFAULT_TEMPLATE_SETTINGS, ...parsed };
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+    return DEFAULT_TEMPLATE_SETTINGS;
+  });
   const [showFormattingPanel, setShowFormattingPanel] = useState(false);
 
   const localizedResumeData = useMemo(() => {
@@ -369,7 +383,13 @@ export default function ResumeViewerPage() {
           <div className="mb-6 border-2 border-black bg-white p-4 no-print">
             <FormattingControls
               settings={templateSettings}
-              onChange={setTemplateSettings}
+              onChange={(s) => {
+                setTemplateSettings(s);
+                // Persist so builder and download use the same template
+                try {
+                  localStorage.setItem('resume_builder_settings', JSON.stringify(s));
+                } catch {}
+              }}
             />
           </div>
         )}

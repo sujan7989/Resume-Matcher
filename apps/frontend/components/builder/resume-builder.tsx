@@ -1075,7 +1075,22 @@ const ResumeBuilderContent = () => {
                     </div>
                   )}
                   {atsResult && !atsLoading && (
-                    <ATSScorePanel result={atsResult} />
+                    <ATSScorePanel
+                      result={atsResult}
+                      onAddKeyword={(keyword) => {
+                        setResumeData(prev => ({
+                          ...prev,
+                          additional: {
+                            ...prev.additional,
+                            technicalSkills: [
+                              ...(prev.additional?.technicalSkills || []),
+                              ...(prev.additional?.technicalSkills?.includes(keyword) ? [] : [keyword]),
+                            ],
+                          },
+                        }));
+                        setHasUnsavedChanges(true);
+                      }}
+                    />
                   )}
                   {!atsResult && !atsLoading && (
                     <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">

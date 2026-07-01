@@ -18,6 +18,7 @@ import { type ATSAnalysisResult } from '@/lib/api/ats';
 
 interface ATSScorePanelProps {
   result: ATSAnalysisResult;
+  onAddKeyword?: (keyword: string) => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -186,11 +187,19 @@ function CircularScore({ score }: { score: number }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function ATSScorePanel({ result }: ATSScorePanelProps) {
+export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
   const { ats_score, keyword_analysis, skill_gap, resume_quality, interview_questions, tailoring_recommendations, job_fit_verdict } = result;
 
   const [expandedSkills, setExpandedSkills] = useState<Set<number>>(new Set());
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set());
+  const [addedKeywords, setAddedKeywords] = useState<Set<string>>(new Set());
+
+  const handleAddKeyword = (keyword: string) => {
+    if (onAddKeyword) {
+      onAddKeyword(keyword);
+      setAddedKeywords(prev => new Set(prev).add(keyword));
+    }
+  };
 
   const toggleSkill = (i: number) =>
     setExpandedSkills((s) => {
@@ -306,10 +315,25 @@ export function ATSScorePanel({ result }: ATSScorePanelProps) {
               {keyword_analysis.missing_keywords.map((kw, i) => (
                 <span
                   key={i}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono border rounded-sm cursor-help ${importanceBadge(kw.importance)}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-mono border rounded-sm ${importanceBadge(kw.importance)}`}
                   title={kw.suggestion}
                 >
                   {kw.keyword}
+                  {onAddKeyword && (
+                    <button
+                      type="button"
+                      onClick={() => handleAddKeyword(kw.keyword)}
+                      disabled={addedKeywords.has(kw.keyword)}
+                      className={`ml-1 w-4 h-4 flex items-center justify-center rounded-sm font-bold text-xs transition-colors ${
+                        addedKeywords.has(kw.keyword)
+                          ? 'bg-green-600 text-white cursor-default'
+                          : 'bg-black text-white hover:bg-blue-700'
+                      }`}
+                      title={addedKeywords.has(kw.keyword) ? 'Added to skills' : `Add "${kw.keyword}" to resume skills`}
+                    >
+                      {addedKeywords.has(kw.keyword) ? '✓' : '+'}
+                    </button>
+                  )}
                 </span>
               ))}
               {keyword_analysis.missing_keywords.length === 0 && (

@@ -62,6 +62,20 @@ async def lifespan(app: FastAPI):
     from app.config import migrate_legacy_keys
     migrate_legacy_keys()
 
+    # Clean up stale encrypted API keys that can't be decrypted
+    # (happens when the encryption secret is regenerated on redeploy).
+    # The LLM_API_KEY env var is the source of truth — stale DB copies just produce warnings.
+    try:
+        from app.crypto import decrypt
+        stored = db.get_api_key_ciphertexts()
+        stale_providers = [p for p, ct in stored.items() if ct and not decrypt(ct)]
+        if stale_providers:
+            for provider in stale_providers:
+                db.delete_api_key(provider)
+            logger.info("Cleared %d stale encrypted API key(s): %s", len(stale_providers), stale_providers)
+    except Exception as e:
+        logger.warning("Could not clean stale API keys: %s", e)
+
     yield
 
     # Shutdown

@@ -35,10 +35,10 @@ async def _run_analysis(resume_id: str, job_id: str) -> ATSAnalysisResponse:
         logger.error("ATS analysis value error for resume=%s job=%s: %s", resume_id, job_id, e)
         raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        logger.error("ATS analysis failed for resume=%s job=%s: %s", resume_id, job_id, e)
+        logger.error("ATS analysis failed for resume=%s job=%s: %s", resume_id, job_id, e, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail="ATS analysis failed. Please try again.",
+            detail=f"ATS analysis failed: {str(e)[:200]}",
         )
 
     return ATSAnalysisResponse(request_id=str(uuid4()), data=result)

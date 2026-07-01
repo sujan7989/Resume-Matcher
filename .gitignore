@@ -135,3 +135,10 @@ config.json
 
 # Superpowers brainstorming visual-companion scratch (local only)
 /.superpowers/
+
+# Auto-generated config files
+.pre-commit-config.yaml
+
+# Generated theme provider and test files
+apps/frontend/components/common/theme-provider.tsx
+apps/frontend/tests/theme-provider.test.tsx

@@ -51,6 +51,7 @@ import { buildResumeFilename, downloadBlobAsFile, openUrlInNewTab } from '@/lib/
 import type { RegenerateItemInput } from '@/lib/api/enrichment';
 import { ATSScorePanel } from '@/components/ats/ats-score-panel';
 import { ManualJDInput } from '@/components/ats/manual-jd-input';
+import { JobUrlInput } from '@/components/ats/job-url-input';
 import { analyzeATSMatch, type ATSAnalysisResult } from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
@@ -165,6 +166,8 @@ const ResumeBuilderContent = () => {
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsError, setAtsError] = useState<string | null>(null);
   const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
+  // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
+  const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -617,9 +620,13 @@ const ResumeBuilderContent = () => {
   const handleAnalyzeATS = async () => {
     if (!resumeId || !jobId) return;
     const cacheKey = `${resumeId}:${jobId}`;
-    if (atsCacheKey === cacheKey && atsResult) return;
+    if (atsCacheKey === cacheKey && atsResult) {
+      setJdRightView('ats');
+      return;
+    }
     setAtsLoading(true);
     setAtsError(null);
+    setJdRightView('ats');
     try {
       const result = await analyzeATSMatch(resumeId, jobId);
       setAtsResult(result);
@@ -826,144 +833,156 @@ const ResumeBuilderContent = () => {
                   />
                 ))}
 
-              {/* JD Match Info Panel */}
+              {/* JD Match Left Panel — clean, action-focused */}
               {activeTab === 'jd-match' && (
                 <div className="space-y-4">
+
+                  {/* Job URL extraction — prominent at top */}
                   <div className="border-2 border-black bg-white p-4">
-                    <h3 className="font-mono text-sm font-bold uppercase mb-2">
-                      {t('builder.jdMatch.aboutTitle')}
+                    <h3 className="font-mono text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-blue-700 inline-block"></span>
+                      Paste Job URL (optional)
                     </h3>
-                    <p className="text-sm text-ink-soft leading-relaxed">
-                      {t('builder.jdMatch.aboutDescription')}
-                    </p>
+                    <JobUrlInput
+                      onExtracted={(content) => {
+                        setJobDescription(content);
+                      }}
+                    />
                   </div>
 
-                  <div className="border-2 border-black bg-background p-4">
-                    <h3 className="font-mono text-sm font-bold uppercase mb-2">
-                      {t('builder.jdMatch.highlightedKeywordsTitle')}
-                    </h3>
-                    <p className="text-sm text-ink-soft leading-relaxed">
-                      {(() => {
-                        const template = t(
-                          'builder.jdMatch.highlightedKeywordsDescriptionTemplate'
-                        );
-                        const parts = template.split('__COLOR__');
-                        if (parts.length < 2) return template;
-                        return (
-                          <>
-                            {parts[0]}
-                            <mark className="bg-yellow-200 px-1">
-                              {t('builder.jdMatch.highlightColor')}
-                            </mark>
-                            {parts.slice(1).join('__COLOR__')}
-                          </>
-                        );
-                      })()}
-                    </p>
-                  </div>
-
-                  <div className="border-2 border-black bg-white p-4">
-                    <h3 className="font-mono text-sm font-bold uppercase mb-2">
-                      {t('builder.jdMatch.tipsTitle')}
-                    </h3>
-                    <ul className="text-sm text-ink-soft space-y-1 list-disc list-inside">
-                      <li>{t('builder.jdMatch.tips.items.addMissingKeywords')}</li>
-                      <li>{t('builder.jdMatch.tips.items.focusTechnicalSkills')}</li>
-                      <li>{t('builder.jdMatch.tips.items.matchActionVerbs')}</li>
-                    </ul>
-                  </div>
-
-                  {/* ATS Analysis Section — works for all resumes */}
+                  {/* ATS Score & Analysis — primary feature, top position */}
                   {resumeId && (
                     <div className="border-2 border-black bg-white">
                       <div className="px-4 py-3 border-b-2 border-black bg-background flex items-center justify-between">
-                        <h3 className="font-mono text-sm font-bold uppercase tracking-wider">
-                          // ATS Score &amp; Analysis
+                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                          <span className="w-2 h-2 bg-green-600 inline-block"></span>
+                          ATS Score &amp; Analysis
                         </h3>
-                        {(jobId || jobDescription) && !atsResult && (
-                          <Button
-                            size="sm"
-                            onClick={handleAnalyzeATS}
-                            disabled={atsLoading}
-                          >
-                            {atsLoading ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              'Run Analysis'
-                            )}
-                          </Button>
-                        )}
-                        {atsResult && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setAtsResult(null);
-                              setAtsCacheKey(null);
-                              handleAnalyzeATS();
-                            }}
-                            disabled={atsLoading}
-                          >
-                            {atsLoading ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              'Re-analyze'
-                            )}
-                          </Button>
-                        )}
+                        <div className="flex gap-2">
+                          {atsResult && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setJdRightView(jdRightView === 'ats' ? 'keywords' : 'ats')}
+                            >
+                              {jdRightView === 'ats' ? 'View Keywords' : 'View Score'}
+                            </Button>
+                          )}
+                          {(jobId || jobDescription) && (
+                            <Button
+                              size="sm"
+                              onClick={handleAnalyzeATS}
+                              disabled={atsLoading}
+                            >
+                              {atsLoading ? (
+                                <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</>
+                              ) : atsResult ? 'Re-analyze' : 'Run ATS Analysis'}
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
-                      {atsError && (
-                        <div className="p-4 text-sm text-red-700 bg-red-50 border-b-2 border-black">
-                          {atsError}
+                      {/* No JD linked yet */}
+                      {!jobId && !jobDescription && (
+                        <div className="p-4 space-y-3">
+                          <p className="font-mono text-xs text-ink-soft">
+                            No job description linked. Paste a URL above, or paste JD text below:
+                          </p>
+                          <ManualJDInput
+                            resumeId={resumeId}
+                            onJobSaved={(id, content) => {
+                              setJobId(id);
+                              setJobDescription(content);
+                            }}
+                          />
                         </div>
                       )}
 
-                      {atsLoading && !atsResult && (
-                        <div className="p-6 flex flex-col items-center gap-3 text-ink-soft">
+                      {/* JD linked, not analyzed yet */}
+                      {(jobId || jobDescription) && !atsResult && !atsLoading && !atsError && (
+                        <div className="p-4">
+                          <p className="font-mono text-xs text-ink-soft leading-relaxed">
+                            Job description ready. Click <strong>Run ATS Analysis</strong> to get:
+                          </p>
+                          <ul className="mt-2 space-y-1 text-xs text-ink-soft list-none">
+                            <li>📊 ATS match score (0–100)</li>
+                            <li>🔑 Keyword gap analysis</li>
+                            <li>💡 Skill gap with actionable advice</li>
+                            <li>✅ Resume quality check</li>
+                            <li>🎤 5 interview questions with tips</li>
+                            <li>🎯 Tailoring recommendations</li>
+                            <li>⭐ Overall job fit verdict</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      {atsLoading && (
+                        <div className="p-6 flex flex-col items-center gap-3">
                           <Loader2 className="w-6 h-6 animate-spin text-blue-700" />
-                          <p className="font-mono text-xs uppercase tracking-wide">
+                          <p className="font-mono text-xs uppercase tracking-wide text-ink-soft">
                             Analyzing resume against job description...
                           </p>
                         </div>
                       )}
 
+                      {atsError && (
+                        <div className="p-4 text-sm text-red-700 bg-red-50">
+                          {atsError}
+                        </div>
+                      )}
+
+                      {/* Score summary visible in left panel */}
                       {atsResult && !atsLoading && (
-                        <div className="p-4">
-                          <ATSScorePanel result={atsResult} />
-                        </div>
-                      )}
-
-                      {!atsResult && !atsLoading && !jobId && (
                         <div className="p-4 space-y-3">
-                          <p className="font-mono text-xs text-ink-soft leading-relaxed">
-                            {jobDescription
-                              ? 'Job description loaded. Click Run Analysis above.'
-                              : 'No job description linked. To analyze ATS match, first tailor this resume to a job, or paste a job description below.'}
-                          </p>
-                          {!jobDescription && (
-                            <ManualJDInput
-                              resumeId={resumeId}
-                              onJobSaved={(id, content) => {
-                                setJobId(id);
-                                setJobDescription(content);
-                              }}
-                            />
-                          )}
-                        </div>
-                      )}
-
-                      {!atsResult && !atsLoading && !atsError && (jobId || jobDescription) && (
-                        <div className="px-4 pb-4 text-xs font-mono text-ink-soft leading-relaxed">
-                          Get real ATS score, keyword gaps, skill analysis, interview questions
-                          and tailoring recommendations.
+                          {/* Big score */}
+                          <div className="flex items-center gap-4">
+                            <div className={`text-4xl font-bold font-mono ${
+                              atsResult.ats_score.overall >= 81 ? 'text-green-700' :
+                              atsResult.ats_score.overall >= 61 ? 'text-blue-700' :
+                              atsResult.ats_score.overall >= 41 ? 'text-orange-600' : 'text-red-600'
+                            }`}>
+                              {atsResult.ats_score.overall}
+                            </div>
+                            <div>
+                              <div className="font-mono text-xs font-bold uppercase">ATS Match Score</div>
+                              <div className={`text-xs font-mono px-2 py-0.5 border mt-1 inline-block ${
+                                atsResult.job_fit_verdict.fit_level === 'excellent' ? 'bg-green-50 border-green-300 text-green-700' :
+                                atsResult.job_fit_verdict.fit_level === 'good' ? 'bg-blue-50 border-blue-300 text-blue-700' :
+                                atsResult.job_fit_verdict.fit_level === 'moderate' ? 'bg-orange-50 border-orange-300 text-orange-700' :
+                                'bg-red-50 border-red-300 text-red-700'
+                              }`}>
+                                {atsResult.job_fit_verdict.fit_level.toUpperCase()} FIT
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-xs text-ink-soft">{atsResult.ats_score.score_explanation}</p>
+                          <Button
+                            className="w-full"
+                            size="sm"
+                            onClick={() => setJdRightView('ats')}
+                          >
+                            View Full Analysis →
+                          </Button>
                         </div>
                       )}
                     </div>
                   )}
+
+                  {/* Collapsible info — moved to bottom */}
+                  <details className="border-2 border-black">
+                    <summary className="px-4 py-2 font-mono text-xs font-bold uppercase cursor-pointer bg-background hover:bg-secondary">
+                      About JD Match
+                    </summary>
+                    <div className="p-4 space-y-2 text-xs text-ink-soft leading-relaxed">
+                      <p>{t('builder.jdMatch.aboutDescription')}</p>
+                      <p>Keywords highlighted in <mark className="bg-yellow-200 px-1">yellow</mark> appear in both the JD and your resume.</p>
+                      <ul className="list-disc list-inside space-y-1 mt-2">
+                        <li>{t('builder.jdMatch.tips.items.addMissingKeywords')}</li>
+                        <li>{t('builder.jdMatch.tips.items.focusTechnicalSkills')}</li>
+                        <li>{t('builder.jdMatch.tips.items.matchActionVerbs')}</li>
+                      </ul>
+                    </div>
+                  </details>
                 </div>
               )}
             </div>
@@ -1041,15 +1060,41 @@ const ResumeBuilderContent = () => {
                 ))}
 
               {/* JD Match Comparison */}
-              {activeTab === 'jd-match' && jobDescription && (
+              {activeTab === 'jd-match' && jdRightView === 'keywords' && jobDescription && (
                 <JDComparisonView jobDescription={jobDescription} resumeData={resumeData} />
               )}
-              {activeTab === 'jd-match' && !jobDescription && (
+              {/* ATS Full Results */}
+              {activeTab === 'jd-match' && jdRightView === 'ats' && (
+                <div className="p-4 overflow-y-auto">
+                  {atsLoading && (
+                    <div className="flex flex-col items-center justify-center h-48 gap-3">
+                      <Loader2 className="w-8 h-8 animate-spin text-blue-700" />
+                      <p className="font-mono text-xs uppercase tracking-wide text-ink-soft">
+                        Running ATS analysis...
+                      </p>
+                    </div>
+                  )}
+                  {atsResult && !atsLoading && (
+                    <ATSScorePanel result={atsResult} />
+                  )}
+                  {!atsResult && !atsLoading && (
+                    <div className="flex flex-col items-center justify-center h-48 gap-3 text-center">
+                      <p className="font-mono text-xs text-ink-soft">
+                        No analysis yet. Click <strong>Run ATS Analysis</strong> in the left panel.
+                      </p>
+                      <Button variant="outline" size="sm" onClick={() => setJdRightView('keywords')}>
+                        ← View Keywords
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+              {activeTab === 'jd-match' && jdRightView === 'keywords' && !jobDescription && (
                 <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
                   <div className="border-2 border-black bg-background p-6 max-w-sm w-full">
                     <p className="font-mono text-sm font-bold uppercase mb-2">// JD Match</p>
                     <p className="text-xs text-ink-soft leading-relaxed">
-                      Paste a job description in the left panel to see keyword
+                      Paste a job URL or job description in the left panel to see keyword
                       highlights and run ATS analysis.
                     </p>
                   </div>

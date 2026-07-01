@@ -10,9 +10,9 @@ services:
 
     envVars:
       - key: LLM_PROVIDER
-        value: groq
+        value: gemini
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile
+        value: gemini/gemini-2.0-flash
       - key: FRONTEND_BASE_URL
         value: https://resume-matcher-zeta.vercel.app
       - key: CORS_ORIGINS

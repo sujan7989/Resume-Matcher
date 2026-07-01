@@ -393,7 +393,7 @@ def get_llm_config() -> LLMConfig:
 
     return LLMConfig(
         provider=provider,
-        model=model,
+        model=model.strip(),  # strip any whitespace/newlines from env var
         api_key=api_key,
         api_base=stored.get("api_base", settings.llm_api_base),
         reasoning_effort=reasoning_effort,

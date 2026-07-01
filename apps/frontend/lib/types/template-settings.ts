@@ -52,7 +52,7 @@ export interface TemplateSettings {
   compactMode: boolean;
   showContactIcons: boolean;
   accentColor: AccentColor;
-  maxPages: 1 | 2; // Target page count: 1 or 2 pages
+  maxPages?: 1 | 2; // Target page count: 1 or 2 pages (optional, defaults to 1)
 }
 
 /**

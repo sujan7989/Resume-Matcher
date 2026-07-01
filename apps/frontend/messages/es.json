@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Guardar",
     "saving": "Guardando...",
@@ -355,33 +355,33 @@
       "panelTitle": "Plantilla y formato",
       "template": "Plantilla",
       "templates": {
-        "swissSingle": {
-          "name": "Una columna",
-          "description": "Diseño tradicional de ancho completo con máxima densidad de contenido"
+                "swissSingle": {
+          "name": "FAANGPath ATS",
+          "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },
         "swissTwoColumn": {
-          "name": "Dos columnas",
-          "description": "Columna principal centrada en experiencia con barra lateral para habilidades"
+          "name": "Deedy",
+          "description": "Two-column layout with left sidebar for skills"
         },
         "modern": {
-          "name": "Moderno",
-          "description": "Acentos coloridos con colores de tema personalizables"
+          "name": "RenderCV Blue",
+          "description": "Modern blue-accented layout with colorful section headers"
         },
         "modernTwoColumn": {
-          "name": "Moderno de dos columnas",
-          "description": "Diseño de dos columnas moderno con acentos coloridos y temas"
+          "name": "Harvard Classic",
+          "description": "Two-column layout with professional blue accents"
         },
         "latex": {
-          "name": "LaTeX",
-          "description": "Diseño académico clásico con tipografía serif y encabezados con líneas"
+          "name": "RenderCV Classic",
+          "description": "Classic serif academic layout"
         },
         "clean": {
-          "name": "Limpio",
-          "description": "Diseño minimalista sans con encabezados grandes y sobrios"
+          "name": "Jake's Resume",
+          "description": "Minimal single-column layout — most popular ATS template"
         },
         "vivid": {
-          "name": "Vívido",
-          "description": "Diseño de dos columnas colorido con encabezados de acento y viñetas de flecha"
+          "name": "Academic",
+          "description": "Left-aligned academic CV style"
         }
       },
       "accentColor": "Color de acento",
@@ -392,6 +392,13 @@
         "red": "Rojo"
       },
       "pageSize": "Tamaño de página",
+      "pageCount": "Páginas Objetivo",
+      "pageCountOptions": {
+        "onePageLabel": "Página",
+        "twoPagesLabel": "Páginas",
+        "onePageHint": "Compacto - Preferencia ATS",
+        "twoPagesHint": "Detallado - Cargos Senior"
+      },
       "margins": "Márgenes (mm)",
       "margin": {
         "top": "Superior",

@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "保存",
     "saving": "保存中...",
@@ -355,33 +355,33 @@
       "panelTitle": "テンプレートと書式",
       "template": "テンプレート",
       "templates": {
-        "swissSingle": {
-          "name": "1カラム",
-          "description": "内容密度が高い伝統的な全幅レイアウト"
+                "swissSingle": {
+          "name": "FAANGPath ATS",
+          "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },
         "swissTwoColumn": {
-          "name": "2カラム",
-          "description": "経験中心のメイン列とスキル用サイドバー"
+          "name": "Deedy",
+          "description": "Two-column layout with left sidebar for skills"
         },
         "modern": {
-          "name": "モダン",
-          "description": "カラフルなアクセントとテーマ色のカスタマイズ"
+          "name": "RenderCV Blue",
+          "description": "Modern blue-accented layout with colorful section headers"
         },
         "modernTwoColumn": {
-          "name": "モダン2カラム",
-          "description": "モダンな2カラムとカラフルなアクセント"
+          "name": "Harvard Classic",
+          "description": "Two-column layout with professional blue accents"
         },
         "latex": {
-          "name": "LaTeX",
-          "description": "罫線付き見出しのクラシックなセリフ体レイアウト"
+          "name": "RenderCV Classic",
+          "description": "Classic serif academic layout"
         },
         "clean": {
-          "name": "クリーン",
-          "description": "大きく控えめな見出しのミニマルなサンセリフ体レイアウト"
+          "name": "Jake's Resume",
+          "description": "Minimal single-column layout — most popular ATS template"
         },
         "vivid": {
-          "name": "ビビッド",
-          "description": "アクセント見出しと矢印箇条書きのカラフルな2カラムレイアウト"
+          "name": "Academic",
+          "description": "Left-aligned academic CV style"
         }
       },
       "accentColor": "アクセントカラー",
@@ -392,6 +392,13 @@
         "red": "赤"
       },
       "pageSize": "ページサイズ",
+      "pageCount": "目標ページ数",
+      "pageCountOptions": {
+        "onePageLabel": "ページ",
+        "twoPagesLabel": "ページ",
+        "onePageHint": "コンパクト - ATS優先",
+        "twoPagesHint": "詳細 - シニアポジション"
+      },
       "margins": "余白（mm）",
       "margin": {
         "top": "上",

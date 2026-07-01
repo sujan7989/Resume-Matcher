@@ -356,32 +356,32 @@
       "template": "Template",
       "templates": {
         "swissSingle": {
-          "name": "Single Column",
-          "description": "Traditional full-width layout with maximum content density"
+          "name": "FAANGPath ATS",
+          "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },
         "swissTwoColumn": {
-          "name": "Two Column",
-          "description": "Experience-focused main column with sidebar for skills"
+          "name": "Deedy",
+          "description": "Two-column layout with left sidebar — popular for CS/engineering roles"
         },
         "modern": {
-          "name": "Modern",
-          "description": "Colorful accents with customizable theme colors"
+          "name": "RenderCV Blue",
+          "description": "Modern blue-accented layout with colorful section headers"
         },
         "modernTwoColumn": {
-          "name": "Modern Two Column",
-          "description": "Two-column layout with modern colorful accents and themes"
+          "name": "Harvard Classic",
+          "description": "Two-column layout with professional blue accents and Harvard-style formatting"
         },
         "latex": {
-          "name": "LaTeX",
-          "description": "Classic serif academic layout with ruled section headers"
+          "name": "RenderCV Classic",
+          "description": "Classic serif academic layout matching RenderCV's clean style"
         },
         "clean": {
-          "name": "Clean",
-          "description": "Minimal sans layout with large understated section headers"
+          "name": "Jake's Resume",
+          "description": "Minimal single-column layout — the most popular ATS template on Overleaf"
         },
         "vivid": {
-          "name": "Vivid",
-          "description": "Colorful two-column layout with accent headers and arrow bullets"
+          "name": "Academic",
+          "description": "Left-aligned academic CV style with structured category labels"
         }
       },
       "accentColor": "Accent Color",
@@ -392,6 +392,13 @@
         "red": "Red"
       },
       "pageSize": "Page Size",
+      "pageCount": "Target Pages",
+      "pageCountOptions": {
+        "onePageLabel": "Page",
+        "twoPagesLabel": "Pages",
+        "onePageHint": "Compact — ATS preferred",
+        "twoPagesHint": "Detailed — senior roles"
+      },
       "margins": "Margins (mm)",
       "margin": {
         "top": "Top",

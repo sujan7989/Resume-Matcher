@@ -1,4 +1,4 @@
-{
+﻿{
   "common": {
     "save": "Salvar",
     "saving": "Salvando...",
@@ -353,33 +353,33 @@
     },
     "formatting": {
       "templates": {
-        "swissSingle": {
-          "name": "Coluna Única",
-          "description": "Layout tradicional de largura total com máxima densidade de conteúdo"
+                "swissSingle": {
+          "name": "FAANGPath ATS",
+          "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },
         "swissTwoColumn": {
-          "name": "Duas Colunas",
-          "description": "Coluna principal focada em experiência com barra lateral para habilidades"
+          "name": "Deedy",
+          "description": "Two-column layout with left sidebar for skills"
         },
         "modern": {
-          "name": "Moderno",
-          "description": "Acentos coloridos com cores de tema personalizáveis"
+          "name": "RenderCV Blue",
+          "description": "Modern blue-accented layout with colorful section headers"
         },
         "modernTwoColumn": {
-          "name": "Moderno Duas Colunas",
-          "description": "Layout de duas colunas com acentos coloridos modernos e temas"
+          "name": "Harvard Classic",
+          "description": "Two-column layout with professional blue accents"
         },
         "latex": {
-          "name": "LaTeX",
-          "description": "Layout acadêmico clássico em serifa com cabeçalhos com linhas"
+          "name": "RenderCV Classic",
+          "description": "Classic serif academic layout"
         },
         "clean": {
-          "name": "Limpo",
-          "description": "Layout minimalista sem serifa com cabeçalhos grandes e discretos"
+          "name": "Jake's Resume",
+          "description": "Minimal single-column layout — most popular ATS template"
         },
         "vivid": {
-          "name": "Vívido",
-          "description": "Layout de duas colunas colorido com cabeçalhos de destaque e marcadores em seta"
+          "name": "Academic",
+          "description": "Left-aligned academic CV style"
         }
       },
       "accentColors": {
@@ -397,6 +397,13 @@
       "template": "Template",
       "accentColor": "Cor de Destaque",
       "pageSize": "Tamanho da Página",
+      "pageCount": "Páginas Alvo",
+      "pageCountOptions": {
+        "onePageLabel": "Página",
+        "twoPagesLabel": "Páginas",
+        "onePageHint": "Compacto - Preferência ATS",
+        "twoPagesHint": "Detalhado - Cargos Seniores"
+      },
       "margins": "Margens (mm)",
       "margin": {
         "top": "Superior",

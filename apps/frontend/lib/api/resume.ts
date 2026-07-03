@@ -266,7 +266,9 @@ export async function downloadResumePdf(
     console.log('[downloadResumePdf] Fetching PDF from:', url);
   }
   
-  const res = await apiFetch(url);
+  // Use fetch directly since getResumePdfUrl already includes /api/v1 prefix
+  // (apiFetch would double-prefix it)
+  const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     const errorMsg = `Failed to download resume (status ${res.status}): ${text}`;
@@ -337,7 +339,9 @@ export async function downloadCoverLetterPdf(
   locale?: Locale
 ): Promise<Blob> {
   const url = getCoverLetterPdfUrl(resumeId, pageSize, locale);
-  const res = await apiFetch(url);
+  // Use fetch directly since getCoverLetterPdfUrl already includes /api/v1 prefix
+  // (apiFetch would double-prefix it)
+  const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Failed to download cover letter (status ${res.status}): ${text}`);

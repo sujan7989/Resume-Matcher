@@ -341,56 +341,100 @@ async def render_resume_pdf(
     template: str = "swiss-single",
     max_pages: int = 1,
 ) -> bytes:
-    """Generate PDF from resume data.
-    
-    1. Build HTML from resume JSON (no network calls)
-    2. Try Playwright to render that HTML -> high-quality PDF matching the template
-    3. Fall back to fpdf2 if Playwright is unavailable
+    """Generate PDF from the frontend print page.
+
+    Navigates to the frontend print URL with Playwright so the PDF output
+    matches the preview exactly (same React components, CSS, fonts, spacing).
+    Falls back to building HTML from resume JSON if the frontend is unreachable.
     
     max_pages: 1 = compact single page (preferred for ATS), 2 = allow two pages
     """
     margins = margins or {"top": 12, "bottom": 12, "left": 18, "right": 18}
-    data = resume_data or {}
+    # Build Playwright margin strings from the margin dict
+    pw_margins = {
+        "top": f"{margins.get('top', 10)}mm",
+        "right": f"{margins.get('right', 10)}mm",
+        "bottom": f"{margins.get('bottom', 10)}mm",
+        "left": f"{margins.get('left', 10)}mm",
+    }
 
-    # Build HTML from resume data (reliable, no network calls)
-    html = _build_resume_html(data, template, page_size, margins)
-
-    # Try Playwright
+    # Try Playwright with the frontend print page URL first
     if await _is_playwright_available():
         try:
             await init_pdf_renderer()
             if _browser_instance:
-                from playwright.async_api import Error as PlaywrightError
                 page = await _browser_instance.new_page()
                 try:
-                    logger.info(f"Playwright: rendering HTML template={template} max_pages={max_pages}")
+                    logger.info(f"Playwright: navigating to frontend print URL template={template} max_pages={max_pages}")
+                    await page.goto(url, wait_until="networkidle", timeout=_NAV_TIMEOUT_MS)
+                    try:
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
+                    except Exception:
+                        pass
+                    # Wait for resume content to render
+                    try:
+                        await page.wait_for_selector(selector, timeout=10_000)
+                    except Exception:
+                        logger.warning(f"Selector '{selector}' not found, proceeding with whatever is on the page")
+
+                    pdf_format = "A4" if page_size == "A4" else "Letter"
+                    if max_pages == 1:
+                        pdf_bytes = await page.pdf(
+                            format=pdf_format,
+                            print_background=True,
+                            margin=pw_margins,
+                            prefer_css_page_size=True,
+                        )
+                    else:
+                        pdf_bytes = await page.pdf(
+                            format=pdf_format,
+                            print_background=True,
+                            margin=pw_margins,
+                        )
+                    logger.info(f"Playwright PDF from frontend: {len(pdf_bytes)} bytes")
+                    return pdf_bytes
+                finally:
+                    await page.close()
+        except Exception as e:
+            logger.warning(f"Playwright frontend render failed: {e}, falling back to HTML builder")
+
+    # Fallback: build HTML from resume data (for when frontend is unreachable)
+    data = resume_data or {}
+    html = _build_resume_html(data, template, page_size, margins)
+
+    if await _is_playwright_available():
+        try:
+            await init_pdf_renderer()
+            if _browser_instance:
+                page = await _browser_instance.new_page()
+                try:
+                    logger.info(f"Playwright fallback: rendering built HTML template={template}")
                     await page.set_content(html, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
                     try:
                         await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
                     except Exception:
                         pass
 
+                    pdf_format = "A4" if page_size == "A4" else "Letter"
                     if max_pages == 1:
-                        # Single page: use prefer_css_page_size so content fits naturally
                         pdf_bytes = await page.pdf(
-                            format="A4" if page_size == "A4" else "Letter",
+                            format=pdf_format,
                             print_background=True,
-                            margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                            margin=pw_margins,
                             prefer_css_page_size=True,
                         )
                     else:
-                        # Two pages: standard format rendering, allow overflow to page 2
                         pdf_bytes = await page.pdf(
-                            format="A4" if page_size == "A4" else "Letter",
+                            format=pdf_format,
                             print_background=True,
-                            margin={"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"},
+                            margin=pw_margins,
                         )
-                    logger.info(f"Playwright PDF: {len(pdf_bytes)} bytes")
+                    logger.info(f"Playwright fallback PDF: {len(pdf_bytes)} bytes")
                     return pdf_bytes
                 finally:
                     await page.close()
         except Exception as e:
-            logger.warning(f"Playwright render failed: {e}, using fpdf2")
+            logger.warning(f"Playwright HTML render failed: {e}, using fpdf2")
 
     # fpdf2 fallback
     logger.info("Using fpdf2 fallback")

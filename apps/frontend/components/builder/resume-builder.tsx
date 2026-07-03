@@ -645,6 +645,17 @@ const ResumeBuilderContent = () => {
     setAtsError(null);
     setJdRightView('ats');
     try {
+      // Auto-save resume before re-analyzing so the backend sees the latest changes
+      // (e.g. keywords the user just added from the ATS panel)
+      if (hasUnsavedChanges) {
+        try {
+          await updateResume(resumeId, resumeData);
+          setLastSavedData(resumeData);
+          setHasUnsavedChanges(false);
+        } catch (saveErr) {
+          console.warn('Auto-save before re-analysis failed, proceeding with stored version:', saveErr);
+        }
+      }
       const result = await analyzeATSMatch(resumeId, jobId);
       setAtsResult(result);
       setAtsCacheKey(cacheKey);
@@ -675,6 +686,13 @@ const ResumeBuilderContent = () => {
     } finally {
       setIsGeneratingProject(false);
     }
+  };
+
+  // Reject current project and generate a new one
+  const handleTryAgainProject = async () => {
+    setGeneratedProject(null);
+    setShowProjectDialog(false);
+    await handleGenerateProject();
   };
 
   // Add the generated project to resume
@@ -1276,7 +1294,10 @@ const ResumeBuilderContent = () => {
       />
 
       {/* Generated Project Preview Dialog */}
-      <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
+      <Dialog open={showProjectDialog} onOpenChange={(open) => {
+        setShowProjectDialog(open);
+        if (!open) setGeneratedProject(null);
+      }}>
         <DialogContent className="sm:max-w-[600px] p-0 gap-0">
           <DialogHeader className="p-6 pb-4">
             <DialogTitle className="font-serif text-xl font-bold uppercase tracking-tight">
@@ -1336,6 +1357,18 @@ const ResumeBuilderContent = () => {
               className="rounded-none border-black"
             >
               {t('common.cancel')}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleTryAgainProject}
+              disabled={isGeneratingProject}
+              className="rounded-none border-black"
+            >
+              {isGeneratingProject ? (
+                <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+              ) : (
+                <><RotateCcw className="w-3 h-3" /> Try Again</>
+              )}
             </Button>
             <Button variant="success" onClick={handleAddProject} className="rounded-none">
               Add to Resume

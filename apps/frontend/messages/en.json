@@ -468,7 +468,9 @@
       "coverLetterDownloadFailed": "Failed to download cover letter: {error}",
       "outreachSaveFailed": "Failed to save outreach message. Please try again.",
       "coverLetterGenerateFailed": "Failed to generate cover letter: {error}",
-      "outreachGenerateFailed": "Failed to generate outreach message: {error}"
+      "outreachGenerateFailed": "Failed to generate outreach message: {error}",
+      "projectGenerateFailed": "Failed to generate tailored project: {error}",
+      "projectAdded": "Project added to your resume!"
     }
   },
   "enrichment": {

@@ -468,7 +468,9 @@
       "coverLetterDownloadFailed": "Falha ao baixar carta de apresentação: {error}",
       "outreachSaveFailed": "Falha ao salvar mensagem de contato. Por favor, tente novamente.",
       "coverLetterGenerateFailed": "Falha ao gerar carta de apresentação: {error}",
-      "outreachGenerateFailed": "Falha ao gerar mensagem de contato: {error}"
+      "outreachGenerateFailed": "Falha ao gerar mensagem de contato: {error}",
+      "projectGenerateFailed": "Falha ao gerar projeto personalizado: {error}",
+      "projectAdded": "Projeto adicionado ao seu currículo!"
     }
   },
   "enrichment": {

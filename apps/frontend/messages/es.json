@@ -468,7 +468,9 @@
       "coverLetterDownloadFailed": "No se pudo descargar la carta de presentación: {error}",
       "outreachSaveFailed": "No se pudo guardar el mensaje de contacto. Por favor, inténtalo de nuevo.",
       "coverLetterGenerateFailed": "No se pudo generar la carta de presentación: {error}",
-      "outreachGenerateFailed": "No se pudo generar el mensaje de contacto: {error}"
+      "outreachGenerateFailed": "No se pudo generar el mensaje de contacto: {error}",
+      "projectGenerateFailed": "No se pudo generar el proyecto personalizado: {error}",
+      "projectAdded": "¡Proyecto añadido a tu currículum!"
     }
   },
   "enrichment": {

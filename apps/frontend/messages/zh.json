@@ -468,7 +468,9 @@
       "coverLetterDownloadFailed": "下载求职信失败：{error}",
       "outreachSaveFailed": "保存联系邮件失败，请重试。",
       "coverLetterGenerateFailed": "生成求职信失败：{error}",
-      "outreachGenerateFailed": "生成联系邮件失败：{error}"
+      "outreachGenerateFailed": "生成联系邮件失败：{error}",
+      "projectGenerateFailed": "生成定制项目失败：{error}",
+      "projectAdded": "项目已添加到您的简历！"
     }
   },
   "enrichment": {

@@ -15,6 +15,7 @@ from app.prompts import (
     DIFF_IMPROVE_PROMPT,
     DIFF_STRATEGY_INSTRUCTIONS,
     EXTRACT_KEYWORDS_PROMPT,
+    GENERATE_TAILORED_PROJECT_PROMPT,
     IMPROVE_RESUME_PROMPTS,
     SKILL_TARGET_PLAN_PROMPT,
     get_language_name,
@@ -1512,3 +1513,41 @@ def generate_improvements(job_keywords: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     return improvements
+
+
+async def generate_tailored_project(
+    resume_data: dict[str, Any],
+    job_description: str,
+    job_keywords: dict[str, Any],
+    language: str = "en",
+) -> dict[str, Any]:
+    """Generate a relevant personal project based on job description and candidate's resume.
+
+    Args:
+        resume_data: Structured resume data
+        job_description: Target job description
+        job_keywords: Extracted job keywords
+        language: Output language code
+
+    Returns:
+        Generated project data
+    """
+    keywords_str = _prepare_keywords_for_prompt(job_keywords)
+    output_language = get_language_name(language)
+
+    sanitized_jd = _sanitize_user_input(job_description)
+
+    prompt = GENERATE_TAILORED_PROJECT_PROMPT.format(
+        resume_data=json.dumps(resume_data),
+        job_description=sanitized_jd,
+        job_keywords=keywords_str,
+        output_language=output_language,
+    )
+
+    result = await complete_json(
+        prompt=prompt,
+        system_prompt="You are an expert career advisor helping candidates create relevant projects. Output only valid JSON.",
+        max_tokens=2048,
+    )
+
+    return result

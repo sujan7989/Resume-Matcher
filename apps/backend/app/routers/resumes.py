@@ -23,10 +23,13 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 from app.schemas import (
     GenerateContentResponse,
+    GenerateTailoredProjectRequest,
+    GenerateTailoredProjectResponse,
     ImproveResumeConfirmRequest,
     ImproveResumeRequest,
     ImproveResumeResponse,
     ImproveResumeData,
+    Project,
     RefinementStats,
     ResumeDiffSummary,
     ResumeFieldDiff,
@@ -50,6 +53,7 @@ from app.services.improver import (
     generate_improvements,
     generate_skill_target_plan,
     generate_resume_diffs,
+    generate_tailored_project,
     improve_resume,
     verify_skill_target_plan,
     verify_diff_result,
@@ -1889,3 +1893,44 @@ async def download_cover_letter_pdf(
         "Content-Disposition": f'attachment; filename="cover_letter_{resume_id}.pdf"'
     }
     return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
+
+
+@router.post("/generate-tailored-project", response_model=GenerateTailoredProjectResponse)
+async def generate_tailored_project_endpoint(
+    request: GenerateTailoredProjectRequest,
+) -> GenerateTailoredProjectResponse:
+    """Generate a relevant personal project based on job description and candidate's resume."""
+    resume = await db.get_resume(request.resume_id)
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+
+    job = await db.get_job(request.job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job description not found")
+
+    resume_data = resume.get("processed_data")
+    if not resume_data:
+        raise HTTPException(
+            status_code=400,
+            detail="Resume has no processed data. Please re-upload or re-process the resume.",
+        )
+
+    job_description = job.get("content", "")
+    language = get_content_language()
+
+    try:
+        job_keywords = await extract_job_keywords(job_description)
+        project_data = await generate_tailored_project(
+            resume_data=resume_data,
+            job_description=job_description,
+            job_keywords=job_keywords,
+            language=language,
+        )
+        project = Project.model_validate(project_data)
+        return GenerateTailoredProjectResponse(project=project)
+    except Exception as e:
+        logger.error(f"Failed to generate tailored project: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate tailored project: {str(e)[:200]}",
+        )

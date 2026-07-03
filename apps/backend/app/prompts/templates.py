@@ -452,6 +452,40 @@ Output this exact JSON format:
   "strategy_notes": "brief notes for the next editing pass"
 }}"""
 
+GENERATE_TAILORED_PROJECT_PROMPT = """Generate a relevant personal project based on the job description and the candidate's existing skills/experience. Output ONLY the JSON object, no other text.
+
+IMPORTANT: Generate ALL text content in {output_language}.
+
+CRITICAL RULES (MUST NOT VIOLATE):
+1. ONLY use skills, tools, and technologies explicitly mentioned in the candidate's resume
+2. DO NOT invent any metrics or achievements that are not supported by the candidate's existing experience
+3. The project should be a plausible side project that demonstrates skills relevant to the JD
+4. The project should fit naturally with the candidate's existing background
+5. Do NOT invent new skills or technologies the candidate hasn't used
+6. Keep the project realistic and achievable, not overly complex
+7. Do NOT use em dash characters
+
+Candidate's existing resume data:
+{resume_data}
+
+Job description:
+{job_description}
+
+Extracted JD keywords and skills:
+{job_keywords}
+
+Output this exact JSON format:
+{{
+  "name": "Project name",
+  "role": "Your role in the project (e.g., Creator, Lead Developer)",
+  "years": "Date range (e.g., 'Jan 2024 - Present')",
+  "description": [
+    "Bullet point 1 describing the project and its relevance",
+    "Bullet point 2 highlighting key technologies used",
+    "Bullet point 3 with any relevant outcomes"
+  ]
+}}"""
+
 DIFF_IMPROVE_PROMPT = """Given this resume and job description, output a JSON object with targeted changes to better align the resume with the job.
 
 RULES:

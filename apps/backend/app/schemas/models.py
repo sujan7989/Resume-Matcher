@@ -444,6 +444,19 @@ class ImproveResumeRequest(BaseModel):
     prompt_id: str | None = None
 
 
+class GenerateTailoredProjectRequest(BaseModel):
+    """Request to generate a tailored project for a resume and job."""
+
+    resume_id: str
+    job_id: str
+
+
+class GenerateTailoredProjectResponse(BaseModel):
+    """Response with the generated tailored project."""
+
+    project: Project
+
+
 class ImprovementSuggestion(BaseModel):
     """Single improvement suggestion."""
 

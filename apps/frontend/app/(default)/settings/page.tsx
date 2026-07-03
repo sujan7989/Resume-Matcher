@@ -59,11 +59,15 @@ import {
   Globe,
   Trash2,
   AlertTriangle,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { useLanguage } from '@/lib/context/language-context';
 import { useTranslations } from '@/lib/i18n';
 import type { SupportedLanguage } from '@/lib/api/config';
 import type { Locale } from '@/i18n/config';
+import { useTheme } from '@/components/common/theme-provider';
 
 type Status = 'idle' | 'loading' | 'saving' | 'saved' | 'error' | 'testing';
 
@@ -111,6 +115,7 @@ const getHealthCheckMessage = (
 export default function SettingsPage() {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
+  const { theme, setTheme } = useTheme();
 
   // LLM Config state
   const [provider, setProvider] = useState<LLMProvider>('openai');
@@ -1248,6 +1253,46 @@ export default function SettingsPage() {
                   description={t('settings.promptSettings.description')}
                   disabled={promptConfigLoading}
                 />
+              </div>
+            </div>
+          </section>
+
+          {/* Theme Settings Section */}
+          <section className="space-y-6">
+            <div className="flex items-center gap-2 border-b border-black/10 pb-2">
+              <Moon className="w-4 h-4" />
+              <h2 className="font-mono text-sm font-bold uppercase tracking-wider">
+                {t('settings.theme')}
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft mb-2">
+                  {t('settings.theme')}
+                </h3>
+                <p className="text-sm text-ink-soft mb-3">{t('settings.themeDescription')}</p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { value: 'light', label: t('settings.lightMode'), icon: Sun },
+                    { value: 'dark', label: t('settings.darkMode'), icon: Moon },
+                    { value: 'system', label: t('settings.systemMode'), icon: Monitor },
+                  ].map(({ value, label, icon: Icon }) => (
+                    <button
+                      key={value}
+                      onClick={() => setTheme(value as any)}
+                      className={`px-4 py-3 text-sm flex flex-col items-center gap-2 ${SEGMENTED_BUTTON_BASE} ${
+                        theme === value ? SEGMENTED_BUTTON_ACTIVE : SEGMENTED_BUTTON_INACTIVE
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

@@ -377,6 +377,37 @@ export async function retryProcessing(resumeId: string): Promise<ResumeUploadRes
   return res.json();
 }
 
+// Interface for tailored project
+interface TailoredProject {
+  id?: number;
+  name?: string;
+  role?: string;
+  years?: string;
+  github?: string | null;
+  website?: string | null;
+  description?: string[];
+}
+
+interface GenerateTailoredProjectResponse {
+  project: TailoredProject;
+}
+
+export async function generateTailoredProject(
+  resumeId: string,
+  jobId: string
+): Promise<TailoredProject> {
+  const res = await apiPost('/resumes/generate-tailored-project', {
+    resume_id: resumeId,
+    job_id: jobId,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to generate tailored project (status ${res.status}): ${text}`);
+  }
+  const data = (await res.json()) as GenerateTailoredProjectResponse;
+  return data.project;
+}
+
 /** Fetches the job description used to tailor a resume */
 export async function fetchJobDescription(
   resumeId: string

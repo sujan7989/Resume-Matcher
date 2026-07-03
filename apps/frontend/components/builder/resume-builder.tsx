@@ -15,6 +15,14 @@ import { Button } from '@/components/ui/button';
 import { RetroTabs } from '@/components/ui/retro-tabs';
 import { ConfirmDialog, type ConfirmDialogProps } from '@/components/ui/confirm-dialog';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Download,
   Save,
   AlertTriangle,
@@ -24,6 +32,7 @@ import {
   Check,
   Sparkles,
   Loader2,
+  Plus,
 } from 'lucide-react';
 import { useResumePreview } from '@/components/common/resume_previewer_context';
 import { PaginatedPreview } from '@/components/preview';
@@ -39,6 +48,7 @@ import {
   generateCoverLetter,
   generateOutreachMessage,
   fetchJobDescription,
+  generateTailoredProject,
 } from '@/lib/api/resume';
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
@@ -168,6 +178,11 @@ const ResumeBuilderContent = () => {
   const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
   // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
   const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
+
+  // Generate tailored project state
+  const [isGeneratingProject, setIsGeneratingProject] = useState(false);
+  const [generatedProject, setGeneratedProject] = useState<any>(null);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -616,14 +631,16 @@ const ResumeBuilderContent = () => {
     doGenerateOutreach();
   };
 
-  // ATS Analysis handler — caches result per resume+job pair
-  const handleAnalyzeATS = async () => {
+  // ATS Analysis handler — caches result per resume+job pair, but allows re-analyze
+  const handleAnalyzeATS = async (forceReanalyze = false) => {
     if (!resumeId || !jobId) return;
     const cacheKey = `${resumeId}:${jobId}`;
-    if (atsCacheKey === cacheKey && atsResult) {
+    if (!forceReanalyze && atsCacheKey === cacheKey && atsResult) {
       setJdRightView('ats');
       return;
     }
+    // If re-analyze, clear cache first
+    setAtsCacheKey(null);
     setAtsLoading(true);
     setAtsError(null);
     setJdRightView('ats');
@@ -637,6 +654,48 @@ const ResumeBuilderContent = () => {
     } finally {
       setAtsLoading(false);
     }
+  };
+
+  // Generate tailored project handler
+  const handleGenerateProject = async () => {
+    if (!resumeId || !jobId) return;
+    setIsGeneratingProject(true);
+    try {
+      const project = await generateTailoredProject(resumeId, jobId);
+      setGeneratedProject(project);
+      setShowProjectDialog(true);
+    } catch (err) {
+      console.error('Failed to generate tailored project:', err);
+      showNotification(
+        t('builder.alerts.projectGenerateFailed', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+        }),
+        'danger'
+      );
+    } finally {
+      setIsGeneratingProject(false);
+    }
+  };
+
+  // Add the generated project to resume
+  const handleAddProject = () => {
+    if (!generatedProject) return;
+    // Generate a unique ID for the new project
+    const newId =
+      (resumeData.personalProjects?.reduce((max, p) => (p.id && p.id > max ? p.id : max), 0) || 0) +
+      1;
+    const newProject = {
+      ...generatedProject,
+      id: newId,
+    };
+    setResumeData({
+      ...resumeData,
+      personalProjects: [...(resumeData.personalProjects || []), newProject],
+    });
+    setHasUnsavedChanges(true);
+    setShowProjectDialog(false);
+    setGeneratedProject(null);
+    showNotification(t('builder.alerts.projectAdded'), 'success');
   };
 
   return (
@@ -871,7 +930,7 @@ const ResumeBuilderContent = () => {
                           {(jobId || jobDescription) && (
                             <Button
                               size="sm"
-                              onClick={handleAnalyzeATS}
+                              onClick={() => handleAnalyzeATS(atsResult ? true : false)}
                               disabled={atsLoading}
                             >
                               {atsLoading ? (
@@ -965,6 +1024,35 @@ const ResumeBuilderContent = () => {
                           </Button>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* Generate Tailored Project */}
+                  {resumeId && jobId && (
+                    <div className="border-2 border-black bg-white">
+                      <div className="px-4 py-3 border-b-2 border-black bg-background">
+                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                          <span className="w-2 h-2 bg-purple-600 inline-block"></span>
+                          Generate Tailored Project
+                        </h3>
+                      </div>
+                      <div className="p-4">
+                        <p className="font-mono text-xs text-ink-soft mb-3">
+                          Generate a relevant personal project based on the job description and your resume.
+                        </p>
+                        <Button
+                          className="w-full"
+                          size="sm"
+                          onClick={handleGenerateProject}
+                          disabled={isGeneratingProject}
+                        >
+                          {isGeneratingProject ? (
+                            <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                          ) : (
+                            <><Plus className="w-3 h-3" /> Generate Project</>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   )}
 
@@ -1186,6 +1274,75 @@ const ResumeBuilderContent = () => {
         variant={notificationDialog?.variant ?? 'default'}
         onConfirm={() => setNotificationDialog(null)}
       />
+
+      {/* Generated Project Preview Dialog */}
+      <Dialog open={showProjectDialog} onOpenChange={setShowProjectDialog}>
+        <DialogContent className="sm:max-w-[600px] p-0 gap-0">
+          <DialogHeader className="p-6 pb-4">
+            <DialogTitle className="font-serif text-xl font-bold uppercase tracking-tight">
+              Generated Tailored Project
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs text-ink-soft mt-2">
+              Review the generated project before adding it to your resume.
+            </DialogDescription>
+          </DialogHeader>
+          {generatedProject && (
+            <div className="px-6 pb-4">
+              <div className="border-2 border-black bg-white p-4 space-y-3">
+                <div>
+                  <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
+                    Project Name
+                  </h4>
+                  <p className="font-serif text-lg">{generatedProject.name || 'Unnamed Project'}</p>
+                </div>
+                {generatedProject.role && (
+                  <div>
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
+                      Role
+                    </h4>
+                    <p className="text-sm">{generatedProject.role}</p>
+                  </div>
+                )}
+                {generatedProject.years && (
+                  <div>
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
+                      Years
+                    </h4>
+                    <p className="text-sm">{generatedProject.years}</p>
+                  </div>
+                )}
+                {generatedProject.description && generatedProject.description.length > 0 && (
+                  <div>
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
+                      Description
+                    </h4>
+                    <ul className="list-disc list-inside text-sm space-y-1 mt-2">
+                      {generatedProject.description.map((desc: string, i: number) => (
+                        <li key={i}>{desc}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter className="p-4 bg-secondary border-t border-black flex-row justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowProjectDialog(false);
+                setGeneratedProject(null);
+              }}
+              className="rounded-none border-black"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button variant="success" onClick={handleAddProject} className="rounded-none">
+              Add to Resume
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* AI Regenerate Wizard */}
       <RegenerateWizard

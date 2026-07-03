@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Space_Grotesk } from 'next/font/google';
 import './(default)/css/globals.css';
 import { KeepAlivePing } from '@/components/keep-alive-ping';
+import { ThemeProvider } from '@/components/common/theme-provider';
 
 const spaceGrotesk = Space_Grotesk({
   variable: '--font-space-grotesk',
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body
         className={`${geist.variable} ${spaceGrotesk.variable} antialiased bg-background text-ink-soft min-h-full`}
       >
-        {children}
+        <ThemeProvider>
+          {children}
+        </ThemeProvider>
         <KeepAlivePing />
       </body>
     </html>

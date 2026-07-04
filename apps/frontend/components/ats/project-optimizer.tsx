@@ -73,20 +73,27 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
     setReplacements(new Map());
     try {
       const result = await analyzeProjects(resumeId, jobId);
-      // result.projects are sorted ascending by relevance (lowest first = highest priority to replace)
-      setAnalysis(result.projects);
-      setSummary(result.summary);
-      // Auto-pre-select the worst ones (verdict=replace)
       const autoSelect = new Set<number>(
         result.projects
           .filter(p => p.verdict === 'replace')
           .slice(0, 3)
           .map(p => p.index)
       );
+      setAnalysis(result.projects);
+      setSummary(result.summary);
       setSelectedToReplace(autoSelect);
       setStep('results');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+      const raw = err instanceof Error ? err.message : 'Analysis failed.';
+      let msg = raw;
+      if (raw.toLowerCase().includes('rate limit') || raw.toLowerCase().includes('ratelimit') || raw.includes('429')) {
+        msg = 'Rate limit reached. Wait 30–60 seconds and try again.';
+      } else if (raw.includes('404')) {
+        msg = 'Feature not yet deployed on the server. Please wait a minute and refresh.';
+      } else if (raw.length > 120) {
+        msg = 'Analysis failed. Please try again.';
+      }
+      setError(msg);
       setStep('idle');
     }
   };
@@ -129,13 +136,17 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
           return next;
         });
       } catch (err) {
+        const raw = err instanceof Error ? err.message : 'Generation failed';
+        const msg = (raw.toLowerCase().includes('rate limit') || raw.includes('429'))
+          ? 'Rate limit — wait 30s and retry'
+          : raw.length > 120 ? 'Generation failed. Retry.' : raw;
         setReplacements(prev => {
           const next = new Map(prev);
           next.set(idx, {
             projectIndex: idx,
             generated: null,
             generating: false,
-            error: err instanceof Error ? err.message : 'Generation failed',
+            error: msg,
             accepted: null,
           });
           return next;
@@ -165,11 +176,15 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
         return next;
       });
     } catch (err) {
+      const raw2 = err instanceof Error ? err.message : 'Generation failed';
+      const msg2 = (raw2.toLowerCase().includes('rate limit') || raw2.includes('429'))
+        ? 'Rate limit — wait 30s and retry'
+        : raw2.length > 120 ? 'Generation failed. Retry.' : raw2;
       setReplacements(prev => {
         const next = new Map(prev);
         next.set(idx, {
           projectIndex: idx, generated: null, generating: false,
-          error: err instanceof Error ? err.message : 'Generation failed', accepted: null,
+          error: msg2, accepted: null,
         });
         return next;
       });

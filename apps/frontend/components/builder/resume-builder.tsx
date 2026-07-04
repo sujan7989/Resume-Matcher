@@ -682,7 +682,20 @@ const ResumeBuilderContent = () => {
       setAtsCacheKey(cacheKey);
     } catch (err) {
       console.error('ATS analysis failed:', err);
-      setAtsError(err instanceof Error ? err.message : 'Analysis failed. Please try again.');
+      // Parse a clean user-facing message from the raw error
+      const raw = err instanceof Error ? err.message : 'Analysis failed. Please try again.';
+      let userMsg = raw;
+      if (raw.toLowerCase().includes('ratelimit') || raw.toLowerCase().includes('rate limit') || raw.includes('429')) {
+        userMsg = 'Rate limit reached on the AI provider. Please wait 30–60 seconds and try again.';
+      } else if (raw.toLowerCase().includes('timeout') || raw.includes('504')) {
+        userMsg = 'Request timed out. Try again in a moment.';
+      } else if (raw.includes('500') || raw.toLowerCase().includes('internal server')) {
+        userMsg = 'Server error during analysis. Please try again.';
+      } else if (raw.length > 120) {
+        // Truncate long raw errors that contain JSON blobs
+        userMsg = 'Analysis failed. Please try again.';
+      }
+      setAtsError(userMsg);
     } finally {
       setAtsLoading(false);
     }
@@ -977,8 +990,13 @@ const ResumeBuilderContent = () => {
                       )}
 
                       {atsError && (
-                        <div className="p-4 text-sm text-red-700 bg-red-50">
-                          {atsError}
+                        <div className="p-4 bg-red-50 border border-red-200">
+                          <p className="text-sm text-red-700">{atsError}</p>
+                          {(atsError.includes('Rate limit') || atsError.includes('wait')) && (
+                            <p className="text-xs text-red-500 mt-1 font-mono">
+                              Groq free tier has request limits. Wait 30–60s then retry.
+                            </p>
+                          )}
                         </div>
                       )}
 

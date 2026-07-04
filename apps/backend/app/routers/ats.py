@@ -164,9 +164,24 @@ async def analyze_projects(request: AnalyzeProjectsRequest) -> AnalyzeProjectsRe
             raise HTTPException(status_code=500, detail="Failed to analyze projects")
 
         ranked = sorted(result["projects"], key=lambda p: p.get("relevance_score", 0))
+        parsed_projects = []
+        for i, p in enumerate(ranked):
+            try:
+                parsed_projects.append(ProjectRelevance(
+                    index=int(p.get("index", i)),
+                    name=str(p.get("name", f"Project {i+1}")),
+                    relevance_score=max(0, min(100, int(p.get("relevance_score", 50)))),
+                    verdict=p.get("verdict", "keep") if p.get("verdict") in ("keep", "replace") else "keep",
+                    reason=str(p.get("reason", "")),
+                    jd_skills_matched=[str(s) for s in p.get("jd_skills_matched", []) if s],
+                    jd_skills_missing=[str(s) for s in p.get("jd_skills_missing", []) if s],
+                ))
+            except Exception as parse_err:
+                logger.warning("Skipping malformed project entry %d: %s", i, parse_err)
+
         return AnalyzeProjectsResponse(
             request_id=str(uuid4()),
-            projects=[ProjectRelevance(**p) for p in ranked],
+            projects=parsed_projects,
             summary=result.get("summary", ""),
         )
     except HTTPException:
@@ -235,6 +250,16 @@ async def replace_project(request: ReplaceProjectRequest) -> ReplaceProjectRespo
             raise HTTPException(status_code=500, detail="Failed to generate replacement project")
         # Preserve the original project ID
         result["id"] = existing_project.get("id", request.project_index + 1)
+        # Ensure description is always a list of strings
+        if not isinstance(result.get("description"), list):
+            result["description"] = []
+        else:
+            result["description"] = [str(d) for d in result["description"] if d]
+        # Ensure required fields have defaults
+        result.setdefault("name", existing_project.get("name", "New Project"))
+        result.setdefault("role", existing_project.get("role", "Developer"))
+        result.setdefault("years", existing_project.get("years", ""))
+        result.setdefault("rationale", "JD-tailored replacement project")
         return ReplaceProjectResponse(request_id=str(uuid4()), project=result)
     except HTTPException:
         raise

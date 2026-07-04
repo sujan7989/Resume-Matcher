@@ -155,6 +155,7 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
     });
 
     await Promise.all(tasks);
+    // Only move to preview if at least one generated successfully; otherwise stay replacing with errors visible
     setStep('preview');
   };
 
@@ -214,14 +215,14 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
   const handleApplyAll = () => {
     const updated = [...projects];
     replacements.forEach((r, idx) => {
-      if (r.accepted === true && r.generated) {
+      if (r.accepted === true && r.generated && idx >= 0 && idx < updated.length) {
         const orig = projects[idx];
         updated[idx] = {
           id: orig?.id ?? idx + 1,
-          name: r.generated.name,
-          role: r.generated.role,
+          name: r.generated.name ?? orig?.name ?? '',
+          role: r.generated.role ?? orig?.role ?? '',
           years: r.generated.years ?? orig?.years ?? '',
-          description: r.generated.description,
+          description: Array.isArray(r.generated.description) ? r.generated.description : [],
           github: orig?.github,
           website: orig?.website,
         };
@@ -235,9 +236,10 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
   };
 
   const acceptedCount = Array.from(replacements.values()).filter(r => r.accepted === true).length;
-  const allDecided = Array.from(replacements.values()).every(
-    r => r.accepted !== null || r.generating
-  );
+  // allDecided: every slot has been decided (accepted/rejected) AND none are still generating
+  const allDecided =
+    replacements.size > 0 &&
+    Array.from(replacements.values()).every(r => !r.generating && r.accepted !== null);
 
   // ── No projects case ───────────────────────────────────────────────────────
   if (projects.length === 0) {
@@ -301,17 +303,18 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
-                  <Button size="sm" variant="outline" onClick={() => { setStep('idle'); setReplacements(new Map()); }} className="rounded-none border-black flex-1">
+                  <Button size="sm" variant="outline" onClick={() => { setStep('idle'); setReplacements(new Map()); setError(null); }} className="rounded-none border-black flex-1">
                     Cancel
                   </Button>
                   <Button size="sm" variant="success" onClick={() => {
                     if (r.generated) {
+                      const nextId = Math.max(0, ...projects.map(p => p.id ?? 0)) + 1;
                       onApply([...projects, {
-                        id: 1,
+                        id: nextId,
                         name: r.generated.name,
                         role: r.generated.role,
                         years: r.generated.years ?? '',
-                        description: r.generated.description,
+                        description: r.generated.description ?? [],
                       }]);
                     }
                     setStep('idle');

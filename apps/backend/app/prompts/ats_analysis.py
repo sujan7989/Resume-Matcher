@@ -142,3 +142,39 @@ SCORING:
 - Weak bullet points (generic verbs): -10
 - Missing skills section: -15
 """
+
+
+SUGGEST_PROJECT_PROMPT = """You are a career coach and software engineer. Suggest ONE relevant personal project a candidate could build to strengthen their resume for the job below.
+
+The project must:
+1. Use skills the candidate ALREADY HAS (from their resume)
+2. Be directly relevant to the JD requirements
+3. Be completable in 1-4 weeks
+4. Sound impressive but realistic for the candidate's level
+5. NOT fabricate skills they don't have
+
+RESUME (JSON):
+{resume_json}
+
+JOB DESCRIPTION:
+{job_description}
+
+Return ONLY valid JSON:
+{{
+  "name": "Project name (5-8 words, professional)",
+  "role": "Creator / Developer",
+  "description": [
+    "Built X using Y to achieve Z (specific, uses candidate's existing skills)",
+    "Implemented A feature demonstrating B capability relevant to the role",
+    "Demonstrated C skill from JD by building D component"
+  ],
+  "rationale": "One sentence explaining why this project specifically helps for this role"
+}}
+
+RULES:
+- Use only technologies/skills from the resume
+- Make it directly relevant to 2-3 JD requirements
+- 2-3 bullet points maximum
+- Each bullet must start with an action verb
+- No fake metrics unless the candidate provided them
+"""

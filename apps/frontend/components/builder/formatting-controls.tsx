@@ -427,6 +427,52 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
                   ))}
                 </div>
               </div>
+
+              {/* Header Font Weight (Thickness) */}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs w-16 text-ink-soft">
+                  {t('builder.formatting.headerFontWeight') || 'Hdr Weight'}:
+                </span>
+                <div className="flex gap-1">
+                  {([300, 400, 500, 600, 700] as const).map((weight) => (
+                    <button
+                      key={weight}
+                      onClick={() => onChange({ ...settings, fontSize: { ...settings.fontSize, headerWeight: weight } })}
+                      className={`px-2 py-1 font-mono text-xs border transition-all ${
+                        settings.fontSize.headerWeight === weight
+                          ? 'bg-blue-700 text-white border-blue-700 shadow-sw-xs'
+                          : 'bg-white text-ink-soft border-steel-grey hover:border-black'
+                      }`}
+                      style={{ fontWeight: weight }}
+                    >
+                      {weight}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Body Font Weight (Thickness) */}
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs w-16 text-ink-soft">
+                  {t('builder.formatting.bodyFontWeight') || 'Body Weight'}:
+                </span>
+                <div className="flex gap-1">
+                  {([300, 400, 500, 600, 700] as const).map((weight) => (
+                    <button
+                      key={weight}
+                      onClick={() => onChange({ ...settings, fontSize: { ...settings.fontSize, bodyWeight: weight } })}
+                      className={`px-2 py-1 font-mono text-xs border transition-all ${
+                        settings.fontSize.bodyWeight === weight
+                          ? 'bg-blue-700 text-white border-blue-700 shadow-sw-xs'
+                          : 'bg-white text-ink-soft border-steel-grey hover:border-black'
+                      }`}
+                      style={{ fontWeight: weight }}
+                    >
+                      {weight}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -521,6 +567,12 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
                 <div>
                   {t('builder.formatting.effectiveBodyFont')}:{' '}
                   {getFontLabel(settings.fontSize.bodyFont)}
+                </div>
+                <div>
+                  Header Weight: {settings.fontSize.headerWeight}
+                </div>
+                <div>
+                  Body Weight: {settings.fontSize.bodyWeight}
                 </div>
               </div>
               {settings.compactMode && (

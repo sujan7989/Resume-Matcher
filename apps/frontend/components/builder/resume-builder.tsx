@@ -43,12 +43,12 @@ import {
   getCoverLetterPdfUrl,
   fetchResume,
   updateResume,
+  uploadJobDescriptions,
   updateCoverLetter,
   updateOutreachMessage,
   generateCoverLetter,
   generateOutreachMessage,
   fetchJobDescription,
-  generateTailoredProject,
 } from '@/lib/api/resume';
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
@@ -62,7 +62,7 @@ import type { RegenerateItemInput } from '@/lib/api/enrichment';
 import { ATSScorePanel } from '@/components/ats/ats-score-panel';
 import { ManualJDInput } from '@/components/ats/manual-jd-input';
 import { JobUrlInput } from '@/components/ats/job-url-input';
-import { analyzeATSMatch, type ATSAnalysisResult } from '@/lib/api/ats';
+import { analyzeATSMatch, suggestProject, type ATSAnalysisResult, type SuggestedProject } from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
 
@@ -181,7 +181,7 @@ const ResumeBuilderContent = () => {
 
   // Generate tailored project state
   const [isGeneratingProject, setIsGeneratingProject] = useState(false);
-  const [generatedProject, setGeneratedProject] = useState<any>(null);
+  const [generatedProject, setGeneratedProject] = useState<SuggestedProject | null>(null);
   const [showProjectDialog, setShowProjectDialog] = useState(false);
 
   // AI Regenerate wizard
@@ -299,7 +299,8 @@ const ResumeBuilderContent = () => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = '';
+        // Modern browsers show a generic message; setting returnValue is kept for legacy support
+        e.returnValue = true;
       }
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -428,6 +429,8 @@ const ResumeBuilderContent = () => {
 
   const handleSettingsChange = useCallback((newSettings: TemplateSettings) => {
     setTemplateSettings(newSettings);
+    // Save immediately to localStorage so downloads pick up the latest settings
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
   }, []);
 
   const handleSave = async () => {
@@ -633,8 +636,25 @@ const ResumeBuilderContent = () => {
 
   // ATS Analysis handler — caches result per resume+job pair, but allows re-analyze
   const handleAnalyzeATS = async (forceReanalyze = false) => {
-    if (!resumeId || !jobId) return;
-    const cacheKey = `${resumeId}:${jobId}`;
+    if (!resumeId) return;
+
+    // If we have jobDescription but no jobId, save it as a job first
+    let effectiveJobId = jobId;
+    if (!effectiveJobId && jobDescription) {
+      try {
+        const newJobId = await uploadJobDescriptions([jobDescription], resumeId);
+        effectiveJobId = newJobId;
+        setJobId(newJobId);
+      } catch (e) {
+        console.error('Failed to save JD before ATS analysis:', e);
+        setAtsError('Could not save job description. Please try again.');
+        return;
+      }
+    }
+
+    if (!effectiveJobId) return;
+
+    const cacheKey = `${resumeId}:${effectiveJobId}`;
     if (!forceReanalyze && atsCacheKey === cacheKey && atsResult) {
       setJdRightView('ats');
       return;
@@ -646,7 +666,6 @@ const ResumeBuilderContent = () => {
     setJdRightView('ats');
     try {
       // Auto-save resume before re-analyzing so the backend sees the latest changes
-      // (e.g. keywords the user just added from the ATS panel)
       if (hasUnsavedChanges) {
         try {
           await updateResume(resumeId, resumeData);
@@ -656,7 +675,7 @@ const ResumeBuilderContent = () => {
           console.warn('Auto-save before re-analysis failed, proceeding with stored version:', saveErr);
         }
       }
-      const result = await analyzeATSMatch(resumeId, jobId);
+      const result = await analyzeATSMatch(resumeId, effectiveJobId);
       setAtsResult(result);
       setAtsCacheKey(cacheKey);
     } catch (err) {
@@ -672,15 +691,13 @@ const ResumeBuilderContent = () => {
     if (!resumeId || !jobId) return;
     setIsGeneratingProject(true);
     try {
-      const project = await generateTailoredProject(resumeId, jobId);
+      const project = await suggestProject(resumeId, jobId);
       setGeneratedProject(project);
       setShowProjectDialog(true);
     } catch (err) {
       console.error('Failed to generate tailored project:', err);
       showNotification(
-        t('builder.alerts.projectGenerateFailed', {
-          error: err instanceof Error ? err.message : 'Unknown error',
-        }),
+        `Failed to generate project: ${err instanceof Error ? err.message : 'Unknown error'}`,
         'danger'
       );
     } finally {
@@ -698,22 +715,32 @@ const ResumeBuilderContent = () => {
   // Add the generated project to resume
   const handleAddProject = () => {
     if (!generatedProject) return;
+    const currentProjects = resumeData.personalProjects || [];
+    // Cap at 3 JD-generated projects (total projects can be more if user manually adds)
+    if (currentProjects.length >= 3) {
+      showNotification(
+        'Your resume already has 3 or more projects. Remove one before adding a new generated project.',
+        'warning'
+      );
+      setShowProjectDialog(false);
+      setGeneratedProject(null);
+      return;
+    }
     // Generate a unique ID for the new project
     const newId =
-      (resumeData.personalProjects?.reduce((max, p) => (p.id && p.id > max ? p.id : max), 0) || 0) +
-      1;
+      (currentProjects.reduce((max, p) => (p.id && p.id > max ? p.id : max), 0) || 0) + 1;
     const newProject = {
       ...generatedProject,
       id: newId,
     };
     setResumeData({
       ...resumeData,
-      personalProjects: [...(resumeData.personalProjects || []), newProject],
+      personalProjects: [...currentProjects, newProject],
     });
     setHasUnsavedChanges(true);
     setShowProjectDialog(false);
     setGeneratedProject(null);
-    showNotification(t('builder.alerts.projectAdded'), 'success');
+    showNotification('Project added to resume. Save to keep it.', 'success');
   };
 
   return (
@@ -1055,17 +1082,23 @@ const ResumeBuilderContent = () => {
                         </h3>
                       </div>
                       <div className="p-4">
-                        <p className="font-mono text-xs text-ink-soft mb-3">
+                        <p className="font-mono text-xs text-ink-soft mb-1">
                           Generate a relevant personal project based on the job description and your resume.
+                        </p>
+                        <p className="font-mono text-xs text-steel-grey mb-3">
+                          Projects on resume: <strong>{resumeData.personalProjects?.length ?? 0}</strong> / 3 max recommended
                         </p>
                         <Button
                           className="w-full"
                           size="sm"
                           onClick={handleGenerateProject}
-                          disabled={isGeneratingProject}
+                          disabled={isGeneratingProject || (resumeData.personalProjects?.length ?? 0) >= 3}
+                          title={(resumeData.personalProjects?.length ?? 0) >= 3 ? 'Remove a project first to add a generated one' : undefined}
                         >
                           {isGeneratingProject ? (
                             <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
+                          ) : (resumeData.personalProjects?.length ?? 0) >= 3 ? (
+                            <>Max 3 projects reached</>
                           ) : (
                             <><Plus className="w-3 h-3" /> Generate Project</>
                           )}
@@ -1183,6 +1216,7 @@ const ResumeBuilderContent = () => {
                   {atsResult && !atsLoading && (
                     <ATSScorePanel
                       result={atsResult}
+                      onReanalyze={() => handleAnalyzeATS(true)}
                       onAddKeyword={(keyword) => {
                         setResumeData(prev => ({
                           ...prev,

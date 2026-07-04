@@ -23,6 +23,8 @@ export type SpacingLevel = 1 | 2 | 3 | 4 | 5;
 export type HeaderFontFamily = 'serif' | 'sans-serif' | 'mono';
 export type BodyFontFamily = 'serif' | 'sans-serif' | 'mono';
 
+export type FontWeight = 300 | 400 | 500 | 600 | 700;
+
 export interface MarginSettings {
   top: number; // 5-25mm
   bottom: number;
@@ -41,6 +43,8 @@ export interface FontSizeSettings {
   headerScale: SpacingLevel; // Header size multiplier
   headerFont: HeaderFontFamily; // Header font family
   bodyFont: BodyFontFamily; // Body text font family
+  headerWeight: FontWeight; // Header font weight (thickness)
+  bodyWeight: FontWeight; // Body font weight (thickness)
 }
 
 export interface TemplateSettings {
@@ -63,7 +67,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   pageSize: 'A4',
   margins: { top: 10, bottom: 10, left: 10, right: 10 },
   spacing: { section: 3, item: 2, lineHeight: 3 },
-  fontSize: { base: 3, headerScale: 3, headerFont: 'serif', bodyFont: 'sans-serif' },
+  fontSize: { base: 3, headerScale: 3, headerFont: 'serif', bodyFont: 'sans-serif', headerWeight: 700, bodyWeight: 400 },
   compactMode: false,
   showContactIcons: false,
   accentColor: 'blue',
@@ -194,6 +198,8 @@ export function settingsToCssVars(settings?: TemplateSettings): React.CSSPropert
     '--section-header-scale': SECTION_HEADER_SCALE_MAP[s.fontSize.headerScale],
     '--header-font': HEADER_FONT_MAP[s.fontSize.headerFont],
     '--body-font': BODY_FONT_MAP[s.fontSize.bodyFont],
+    '--header-weight': String(s.fontSize.headerWeight ?? 700),
+    '--body-weight': String(s.fontSize.bodyWeight ?? 400),
     '--margin-top': `${marginTop}mm`,
     '--margin-bottom': `${marginBottom}mm`,
     '--margin-left': `${marginLeft}mm`,

@@ -464,6 +464,7 @@ CRITICAL RULES (MUST NOT VIOLATE):
 5. Do NOT invent new skills or technologies the candidate hasn't used
 6. Keep the project realistic and achievable, not overly complex
 7. Do NOT use em dash characters
+8. This project will be added to the resume alongside existing projects — make it distinct and complementary
 
 Candidate's existing resume data:
 {resume_data}
@@ -476,13 +477,13 @@ Extracted JD keywords and skills:
 
 Output this exact JSON format:
 {{
-  "name": "Project name",
+  "name": "Project name (5-8 words, professional and specific)",
   "role": "Your role in the project (e.g., Creator, Lead Developer)",
   "years": "Date range (e.g., 'Jan 2024 - Present')",
   "description": [
-    "Bullet point 1 describing the project and its relevance",
-    "Bullet point 2 highlighting key technologies used",
-    "Bullet point 3 with any relevant outcomes"
+    "Bullet point 1: what was built and why it is relevant to the target role",
+    "Bullet point 2: key technologies used (only from candidate's existing skills)",
+    "Bullet point 3: outcome or impact (no fabricated metrics)"
   ]
 }}"""
 

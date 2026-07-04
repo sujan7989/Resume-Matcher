@@ -238,8 +238,8 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
         if not isinstance(e, dict):
             continue
         edu_html += item_html(
-            _safe(e.get("degree", "")),
-            _safe(e.get("institution", "")),
+            _safe(e.get("institution", "")),  # institution = bold title (matches React templates)
+            _safe(e.get("degree", "")),        # degree = italic subtitle
             _safe(e.get("years", "")),
             "",
             [e.get("description")] if e.get("description") else []
@@ -383,19 +383,15 @@ async def render_resume_pdf(
                         logger.warning(f"Selector '{selector}' not found, proceeding with whatever is on the page")
 
                     pdf_format = "A4" if page_size == "A4" else "Letter"
-                    if max_pages == 1:
-                        pdf_bytes = await page.pdf(
-                            format=pdf_format,
-                            print_background=True,
-                            margin=pw_margins,
-                            prefer_css_page_size=True,
-                        )
-                    else:
-                        pdf_bytes = await page.pdf(
-                            format=pdf_format,
-                            print_background=True,
-                            margin=pw_margins,
-                        )
+                    # Use zero margins since the @page CSS rule in the print page handles margins
+                    # This ensures the preview (which uses CSS margins) matches the PDF exactly
+                    zero_margins = {"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"}
+                    pdf_bytes = await page.pdf(
+                        format=pdf_format,
+                        print_background=True,
+                        margin=zero_margins,
+                        prefer_css_page_size=True,
+                    )
                     logger.info(f"Playwright PDF from frontend: {len(pdf_bytes)} bytes")
                     return pdf_bytes
                 finally:
@@ -461,6 +457,12 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
     pdf.set_auto_page_break(True, margin=mb)
     pdf.add_page()
 
+    # Track section header state with explicit variables (not hasattr)
+    _exp_hdr_done = False
+    _edu_hdr_done = False
+    _proj_hdr_done = False
+    _cert_hdr_done = False
+
     def s(v: Any) -> str:
         if v is None: return ""
         t = str(v)
@@ -512,9 +514,9 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
 
     for job in (data.get("workExperience") or []):
         if not isinstance(job, dict): continue
-        if not hasattr(pdf, '_exp_hdr_done'):
+        if not _exp_hdr_done:
             sec_hdr("Experience")
-            pdf._exp_hdr_done = True
+            _exp_hdr_done = True
         left = " | ".join(x for x in [s(job.get("title","")), s(job.get("company",""))] if x)
         date = s(job.get("years",""))
         pdf.set_font("Arial","B",9)
@@ -538,9 +540,9 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
 
     for edu in (data.get("education") or []):
         if not isinstance(edu, dict): continue
-        if not hasattr(pdf, '_edu_hdr_done'):
+        if not _edu_hdr_done:
             sec_hdr("Education")
-            pdf._edu_hdr_done = True
+            _edu_hdr_done = True
         left = " | ".join(x for x in [s(edu.get("degree","")), s(edu.get("institution",""))] if x)
         pdf.set_font("Arial","B",9)
         pdf.set_text_color(20,20,20)
@@ -555,15 +557,25 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
 
     for proj in (data.get("personalProjects") or []):
         if not isinstance(proj, dict): continue
-        if not hasattr(pdf, '_proj_hdr_done'):
+        if not _proj_hdr_done:
             sec_hdr("Projects")
-            pdf._proj_hdr_done = True
+            _proj_hdr_done = True
+        # Project name with optional github/website links
+        proj_name = s(proj.get("name",""))
+        github_url = s(proj.get("github") or "")
+        website_url = s(proj.get("website") or "")
+        links = " | ".join(x for x in [github_url, website_url] if x)
+        display_name = proj_name + (f" ({links})" if links else "")
         pdf.set_font("Arial","B",9)
         pdf.set_text_color(20,20,20)
-        pdf.cell(pw*0.72, 5, s(proj.get("name","")), ln=False)
+        pdf.cell(pw*0.72, 5, display_name, ln=False)
         pdf.set_font("Arial","",8)
         pdf.set_text_color(90,90,90)
         pdf.cell(pw*0.28, 5, s(proj.get("years") or ""), ln=True, align="R")
+        if proj.get("role"):
+            pdf.set_font("Arial","I",8.5)
+            pdf.set_text_color(60,60,60)
+            pdf.cell(0, 4, s(proj.get("role","")), ln=True)
         for b in (proj.get("description") or []):
             if b:
                 pdf.set_font("Arial","",8.5)
@@ -583,12 +595,29 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
         pdf.ln(2)
 
     for c in (add.get("certificationsTraining") or []):
-        if not hasattr(pdf, '_cert_hdr_done'):
+        if not _cert_hdr_done:
             sec_hdr("Certifications")
-            pdf._cert_hdr_done = True
+            _cert_hdr_done = True
         pdf.set_font("Arial","",8.5)
         pdf.set_x(ml+3); pdf.cell(3,4.5,"*",ln=False)
         pdf.set_x(ml+6); pdf.multi_cell(pw-6, 4.5, s(c))
+
+    # Languages and Awards
+    lang_list = add.get("languages") or []
+    if lang_list:
+        sec_hdr("Languages")
+        pdf.set_font("Arial","",8.5)
+        pdf.multi_cell(0, 4.5, "  |  ".join(s(x) for x in lang_list if x))
+        pdf.ln(2)
+
+    awards_list = add.get("awards") or []
+    if awards_list:
+        sec_hdr("Awards")
+        for award in awards_list:
+            if award:
+                pdf.set_font("Arial","",8.5)
+                pdf.set_x(ml+3); pdf.cell(3,4.5,"*",ln=False)
+                pdf.set_x(ml+6); pdf.multi_cell(pw-6, 4.5, s(award))
 
     out = pdf.output()
     return bytes(out) if isinstance(out, bytearray) else out

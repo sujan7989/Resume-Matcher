@@ -30,6 +30,8 @@ type PageProps = {
     headerScale?: string;
     headerFont?: string;
     bodyFont?: string;
+    headerWeight?: string;
+    bodyWeight?: string;
     compactMode?: string;
     showContactIcons?: string;
     accentColor?: string;
@@ -66,6 +68,20 @@ function parseAccentColor(value: string | undefined): AccentColor {
     return value;
   }
   return DEFAULT_TEMPLATE_SETTINGS.accentColor;
+}
+
+/**
+ * Parse font weight, clamped to valid values
+ */
+function parseFontWeight(
+  value: string | undefined,
+  defaultValue: number
+): 300 | 400 | 500 | 600 | 700 {
+  if (!value) return defaultValue as 300 | 400 | 500 | 600 | 700;
+  const num = parseInt(value, 10);
+  const valid = [300, 400, 500, 600, 700];
+  if (isNaN(num) || !valid.includes(num)) return defaultValue as 300 | 400 | 500 | 600 | 700;
+  return num as 300 | 400 | 500 | 600 | 700;
 }
 
 /**
@@ -228,6 +244,14 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
       ),
       headerFont: parseHeaderFont(resolvedSearchParams?.headerFont),
       bodyFont: parseBodyFont(resolvedSearchParams?.bodyFont),
+      headerWeight: parseFontWeight(
+        resolvedSearchParams?.headerWeight,
+        DEFAULT_TEMPLATE_SETTINGS.fontSize.headerWeight
+      ),
+      bodyWeight: parseFontWeight(
+        resolvedSearchParams?.bodyWeight,
+        DEFAULT_TEMPLATE_SETTINGS.fontSize.bodyWeight
+      ),
     },
     compactMode: parseBoolean(
       resolvedSearchParams?.compactMode,
@@ -241,24 +265,58 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
     maxPages: (resolvedSearchParams?.maxPages === '2' ? 2 : 1) as 1 | 2,
   };
 
-  // Note: Margins are applied by Playwright's PDF renderer (not here)
-  // This ensures margins appear on EVERY page, not just the first
-  // The settings are passed to override CSS variables for spacing/fonts only
+  // Note: Margins are applied via @page CSS rule above so every page gets them
+  // The Resume component gets zero margins so content fills to the @page margins
   const printSettings: TemplateSettings = {
     ...settings,
-    // Zero out margins in CSS since Playwright handles them
+    // Zero out margins in CSS since @page rule handles them per-page
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
   };
 
   return (
     <>
-      {/* Load web fonts so Playwright PDF output matches the browser preview exactly */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      <link
-        href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-        rel="stylesheet"
-      />
+      <head>
+        {/* Load web fonts so Playwright PDF output matches the browser preview exactly */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+        {/* Print-specific CSS to ensure perfect rendering */}
+        <style>{`
+          @page {
+            size: ${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};
+            margin: ${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .resume-print {
+            width: 100%;
+            background: white;
+            /* Prevent extra blank page at bottom */
+            display: block;
+            overflow: hidden;
+          }
+          /* Remove all bottom padding/margin from last section to prevent whitespace */
+          .resume-section:last-child {
+            margin-bottom: 0 !important;
+            padding-bottom: 0 !important;
+          }
+          .resume-item:last-child {
+            margin-bottom: 0 !important;
+          }
+          .resume-items:last-child {
+            padding-bottom: 0 !important;
+          }
+        `}</style>
+      </head>
       <div className="resume-print bg-white">
         <Resume
           resumeData={localizedResumeData}

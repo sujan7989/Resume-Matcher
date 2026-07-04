@@ -34,7 +34,7 @@
 .resume-name {
   font-size: calc(var(--font-size-base) * var(--header-scale));
   font-family: var(--header-font);
-  font-weight: 700;
+  font-weight: var(--header-weight, 700);
   color: var(--resume-text-primary);
 }
 
@@ -82,14 +82,14 @@
 .resume-item-title {
   font-family: var(--body-font);
   font-size: var(--font-size-base);
-  font-weight: 700;
+  font-weight: var(--body-weight, 700);
   color: var(--resume-text-primary);
 }
 
 .resume-item-title-sm {
   font-family: var(--body-font);
   font-size: calc(var(--font-size-base) * 0.9);
-  font-weight: 700;
+  font-weight: var(--body-weight, 700);
   color: var(--resume-text-primary);
 }
 
@@ -170,13 +170,30 @@
 
 .resume-section:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+/* Prevent trailing whitespace after the last item */
+.resume-item:last-child {
+  margin-bottom: 0;
+}
+
+.resume-items:last-child > .resume-item:last-child {
+  margin-bottom: 0;
+}
+
+/* Last element in resume body should have no extra spacing */
+.resume-body > *:last-child,
+.resume-body > *:last-child > *:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
 }
 
 /* Section Title - Full underline style */
 .resume-section-title {
   font-size: calc(var(--font-size-base) * var(--section-header-scale));
   font-family: var(--header-font);
-  font-weight: 700;
+  font-weight: var(--header-weight, 700);
   text-transform: uppercase;
   border-bottom: 1px solid var(--resume-border-primary);
   margin-bottom: var(--item-gap);
@@ -194,7 +211,7 @@
 .resume-section-title-sm {
   font-size: calc(var(--font-size-base) * var(--section-header-scale) * 0.88);
   font-family: var(--header-font);
-  font-weight: 700;
+  font-weight: var(--header-weight, 700);
   text-transform: uppercase;
   border-bottom: 1px solid var(--resume-border-primary);
   margin-bottom: var(--item-gap);
@@ -279,6 +296,8 @@
   .resume-body {
     page-break-inside: avoid !important;
     break-inside: avoid-page !important;
+    /* Remove bottom padding in print to avoid extra blank space */
+    padding-bottom: 0 !important;
   }
 
   /* Avoid breaking individual resume items across pages */
@@ -292,6 +311,15 @@
   .resume-section-title-sm {
     break-after: avoid !important;
     page-break-after: avoid !important;
+  }
+
+  /* Last section and item: no trailing margins */
+  .resume-section:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .resume-item:last-child {
+    margin-bottom: 0 !important;
   }
 
   /* Keep section header together with its first item */

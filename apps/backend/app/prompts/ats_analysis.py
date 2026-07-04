@@ -178,3 +178,87 @@ RULES:
 - Each bullet must start with an action verb
 - No fake metrics unless the candidate provided them
 """
+
+
+ANALYZE_PROJECTS_PROMPT = """You are a senior technical recruiter. Analyze each project in this resume against the job description and score its relevance.
+
+JOB DESCRIPTION:
+{job_description}
+
+RESUME PROJECTS:
+{projects_json}
+
+CANDIDATE SKILLS:
+{skills_json}
+
+For each project, score relevance 0-100 (100 = perfectly aligned with JD, 0 = completely irrelevant).
+Also determine whether it should be kept or replaced.
+
+Return ONLY valid JSON:
+{{
+  "projects": [
+    {{
+      "index": 0,
+      "name": "<project name>",
+      "relevance_score": <integer 0-100>,
+      "verdict": "keep|replace",
+      "reason": "<one sentence explaining the score and verdict>",
+      "jd_skills_matched": ["<skill1>", "<skill2>"],
+      "jd_skills_missing": ["<skill1>", "<skill2>"]
+    }}
+  ],
+  "summary": "<1-2 sentence overall assessment of the projects section vs the JD>"
+}}
+
+SCORING RULES:
+- 80-100: Highly relevant — uses JD-critical skills, demonstrates JD requirements directly
+- 60-79: Moderately relevant — some JD skills used, partial alignment
+- 40-59: Weakly relevant — tangential connection to JD
+- 0-39: Not relevant — no meaningful alignment with JD requirements
+
+VERDICT RULES:
+- "keep" if relevance_score >= 60
+- "replace" if relevance_score < 60
+
+Be honest. A project about gaming when the JD is cloud infrastructure should score < 20.
+"""
+
+
+REPLACE_PROJECT_PROMPT = """You are a career coach. Generate a replacement project for the candidate's least relevant project.
+
+The candidate wants to replace their existing project with something more relevant to the job.
+
+EXISTING PROJECT TO REPLACE:
+{existing_project}
+
+WHY IT'S BEING REPLACED:
+{replace_reason}
+
+JOB DESCRIPTION:
+{job_description}
+
+CANDIDATE'S SKILLS AND EXPERIENCE (use ONLY these):
+{resume_json}
+
+Generate ONE replacement project that:
+1. Uses ONLY skills the candidate already has from their resume
+2. Directly addresses what the JD requires
+3. Would score 80+ for relevance against this JD
+4. Is realistic for the candidate's level
+5. Does NOT invent skills or technologies not in their resume
+
+Return ONLY valid JSON:
+{{
+  "name": "Project name (5-8 words, professional, specific)",
+  "role": "Creator / Lead Developer",
+  "years": "2024",
+  "description": [
+    "Built X using [candidate's existing skill] to solve [JD requirement]",
+    "Implemented [feature] demonstrating [JD-critical capability] using [candidate's tools]",
+    "Deployed/tested/optimized [component] achieving [realistic outcome]"
+  ],
+  "rationale": "Why this replaces the old project and directly addresses the JD requirements"
+}}
+
+CRITICAL: Only use technologies explicitly listed in the candidate's resume skills or experience.
+"""

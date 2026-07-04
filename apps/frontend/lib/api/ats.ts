@@ -67,3 +67,83 @@ export async function analyzeATSMatch(resumeId: string, jobId: string): Promise<
   const payload = await res.json();
   return payload.data;
 }
+
+export interface SuggestedProject {
+  name: string;
+  role: string;
+  years?: string;
+  description: string[];
+  rationale: string;
+}
+
+export async function suggestProject(resumeId: string, jobId: string): Promise<SuggestedProject> {
+  const res = await apiPost('/ats/suggest-project', { resume_id: resumeId, job_id: jobId });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to suggest project (${res.status}): ${text}`);
+  }
+  const payload = await res.json();
+  return payload.project;
+}
+
+// ── Project Optimizer ─────────────────────────────────────────────────────────
+
+export interface ProjectRelevance {
+  index: number;
+  name: string;
+  relevance_score: number;
+  verdict: 'keep' | 'replace';
+  reason: string;
+  jd_skills_matched: string[];
+  jd_skills_missing: string[];
+}
+
+export interface AnalyzeProjectsResult {
+  projects: ProjectRelevance[];
+  summary: string;
+}
+
+export async function analyzeProjects(
+  resumeId: string,
+  jobId: string
+): Promise<AnalyzeProjectsResult> {
+  const res = await apiPost('/ats/analyze-projects', {
+    resume_id: resumeId,
+    job_id: jobId,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to analyze projects (${res.status}): ${text}`);
+  }
+  const payload = await res.json();
+  return { projects: payload.projects, summary: payload.summary };
+}
+
+export interface ReplacementProject {
+  id?: number;
+  name: string;
+  role: string;
+  years?: string;
+  description: string[];
+  rationale: string;
+}
+
+export async function replaceProject(
+  resumeId: string,
+  jobId: string,
+  projectIndex: number,
+  replaceReason: string
+): Promise<ReplacementProject> {
+  const res = await apiPost('/ats/replace-project', {
+    resume_id: resumeId,
+    job_id: jobId,
+    project_index: projectIndex,
+    replace_reason: replaceReason,
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Failed to replace project (${res.status}): ${text}`);
+  }
+  const payload = await res.json();
+  return payload.project;
+}

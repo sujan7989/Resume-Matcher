@@ -62,6 +62,7 @@ import type { RegenerateItemInput } from '@/lib/api/enrichment';
 import { ATSScorePanel } from '@/components/ats/ats-score-panel';
 import { ManualJDInput } from '@/components/ats/manual-jd-input';
 import { JobUrlInput } from '@/components/ats/job-url-input';
+import { ProjectOptimizer } from '@/components/ats/project-optimizer';
 import { analyzeATSMatch, suggestProject, type ATSAnalysisResult, type SuggestedProject } from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
@@ -199,10 +200,10 @@ const ResumeBuilderContent = () => {
   // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
   const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
 
-  // Generate tailored project state
-  const [isGeneratingProject, setIsGeneratingProject] = useState(false);
-  const [generatedProject, setGeneratedProject] = useState<SuggestedProject | null>(null);
-  const [showProjectDialog, setShowProjectDialog] = useState(false);
+  // Generate tailored project state — kept for suggestProject import usage
+  const [isGeneratingProject] = useState(false);
+  const [generatedProject] = useState<SuggestedProject | null>(null);
+  const [showProjectDialog] = useState(false);
 
   // AI Regenerate wizard
   const regenerateWizard = useRegenerateWizard({
@@ -687,54 +688,7 @@ const ResumeBuilderContent = () => {
     }
   };
 
-  // Generate tailored project handler
-  const handleGenerateProject = async () => {
-    if (!resumeId || !jobId) return;
-    setIsGeneratingProject(true);
-    try {
-      const project = await suggestProject(resumeId, jobId);
-      setGeneratedProject(project);
-      setShowProjectDialog(true);
-    } catch (err) {
-      console.error('Failed to generate tailored project:', err);
-      showNotification(
-        `Failed to generate project: ${err instanceof Error ? err.message : 'Unknown error'}`,
-        'danger'
-      );
-    } finally {
-      setIsGeneratingProject(false);
-    }
-  };
-
-  // Reject current project and generate a new one
-  const handleTryAgainProject = async () => {
-    setGeneratedProject(null);
-    setShowProjectDialog(false);
-    await handleGenerateProject();
-  };
-
-  // Add the generated project to resume
-  const handleAddProject = () => {
-    if (!generatedProject) return;
-    const currentProjects = resumeData.personalProjects || [];
-    // Generate a unique ID for the new project
-    const newId =
-      (currentProjects.reduce((max, p) => (p.id && p.id > max ? p.id : max), 0) || 0) + 1;
-    const newProject = {
-      ...generatedProject,
-      id: newId,
-    };
-    const updated = {
-      ...resumeData,
-      personalProjects: [...currentProjects, newProject],
-    };
-    setResumeData(updated);
-    setHasUnsavedChanges(true);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    setShowProjectDialog(false);
-    setGeneratedProject(null);
-    showNotification('Project added to resume. Save to keep it.', 'success');
-  };
+  // Generate tailored project — now handled by ProjectOptimizer component
 
   return (
     <div className="h-screen w-full bg-background flex justify-center items-center p-4 md:p-8">
@@ -1065,39 +1019,20 @@ const ResumeBuilderContent = () => {
                     </div>
                   )}
 
-                  {/* Generate Tailored Project */}
+                  {/* Project Optimizer — analyze existing + generate JD-aligned replacements */}
                   {resumeId && jobId && (
-                    <div className="border-2 border-black bg-white">
-                      <div className="px-4 py-3 border-b-2 border-black bg-background">
-                        <h3 className="font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2">
-                          <span className="w-2 h-2 bg-purple-600 inline-block"></span>
-                          Generate Tailored Project
-                        </h3>
-                      </div>
-                      <div className="p-4 space-y-3">
-                        <p className="font-mono text-xs text-ink-soft">
-                          Generate a project tailored to the JD using your existing skills. Review and add to resume.
-                        </p>
-                        <p className="font-mono text-xs text-steel-grey">
-                          Current projects on resume: <strong>{resumeData.personalProjects?.length ?? 0}</strong>
-                          {(resumeData.personalProjects?.length ?? 0) >= 3 && (
-                            <span className="ml-2 text-amber-600">(3 shown — consider replacing one)</span>
-                          )}
-                        </p>
-                        <Button
-                          className="w-full"
-                          size="sm"
-                          onClick={handleGenerateProject}
-                          disabled={isGeneratingProject}
-                        >
-                          {isGeneratingProject ? (
-                            <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
-                          ) : (
-                            <><Plus className="w-3 h-3" /> Generate JD-Tailored Project</>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
+                    <ProjectOptimizer
+                      resumeId={resumeId}
+                      jobId={jobId}
+                      projects={resumeData.personalProjects || []}
+                      onApply={(updatedProjects) => {
+                        const updated = { ...resumeData, personalProjects: updatedProjects };
+                        setResumeData(updated);
+                        setHasUnsavedChanges(true);
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                        showNotification('Projects updated. Save to keep changes.', 'success');
+                      }}
+                    />
                   )}
 
                   {/* Collapsible info — moved to bottom */}
@@ -1332,103 +1267,7 @@ const ResumeBuilderContent = () => {
         onConfirm={() => setNotificationDialog(null)}
       />
 
-      {/* Generated Project Preview Dialog */}
-      <Dialog open={showProjectDialog} onOpenChange={(open) => {
-        setShowProjectDialog(open);
-        if (!open) setGeneratedProject(null);
-      }}>
-        <DialogContent className="sm:max-w-[600px] p-0 gap-0">
-          <DialogHeader className="p-6 pb-4">
-            <DialogTitle className="font-serif text-xl font-bold uppercase tracking-tight">
-              Generated Tailored Project
-            </DialogTitle>
-            <DialogDescription className="font-mono text-xs text-ink-soft mt-2">
-              This project was generated based on your resume skills and the job description.
-              Review it and choose to add it or try again.
-            </DialogDescription>
-          </DialogHeader>
-          {generatedProject && (
-            <div className="px-6 pb-4">
-              <div className="border-2 border-black bg-white p-4 space-y-3">
-                <div>
-                  <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
-                    Project Name
-                  </h4>
-                  <p className="font-serif text-lg">{generatedProject.name || 'Unnamed Project'}</p>
-                </div>
-                {generatedProject.role && (
-                  <div>
-                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
-                      Role
-                    </h4>
-                    <p className="text-sm">{generatedProject.role}</p>
-                  </div>
-                )}
-                {generatedProject.years && (
-                  <div>
-                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
-                      Years
-                    </h4>
-                    <p className="text-sm">{generatedProject.years}</p>
-                  </div>
-                )}
-                {generatedProject.description && generatedProject.description.length > 0 && (
-                  <div>
-                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-ink-soft">
-                      Description
-                    </h4>
-                    <ul className="list-disc list-inside text-sm space-y-1 mt-2">
-                      {generatedProject.description.map((desc: string, i: number) => (
-                        <li key={i}>{desc}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {'rationale' in generatedProject && (generatedProject as { rationale?: string }).rationale && (
-                  <div className="bg-blue-50 border border-blue-200 p-2 rounded-sm">
-                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
-                      Why This Project
-                    </h4>
-                    <p className="text-xs text-blue-800">{(generatedProject as { rationale?: string }).rationale}</p>
-                  </div>
-                )}
-              </div>
-              {(resumeData.personalProjects?.length ?? 0) >= 3 && (
-                <p className="mt-3 text-xs font-mono text-amber-700 bg-amber-50 border border-amber-200 p-2">
-                  ⚠ You already have {resumeData.personalProjects?.length} projects. Adding this will make {(resumeData.personalProjects?.length ?? 0) + 1} total. Consider removing a less relevant one from the Resume tab.
-                </p>
-              )}
-            </div>
-          )}
-          <DialogFooter className="p-4 bg-secondary border-t border-black flex-row justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setShowProjectDialog(false);
-                setGeneratedProject(null);
-              }}
-              className="rounded-none border-black"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleTryAgainProject}
-              disabled={isGeneratingProject}
-              className="rounded-none border-black"
-            >
-              {isGeneratingProject ? (
-                <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
-              ) : (
-                <><RotateCcw className="w-3 h-3" /> Try Again</>
-              )}
-            </Button>
-            <Button variant="success" onClick={handleAddProject} className="rounded-none">
-              Add to Resume
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Generated Project Preview Dialog — replaced by ProjectOptimizer */}
 
       {/* AI Regenerate Wizard */}
       <RegenerateWizard

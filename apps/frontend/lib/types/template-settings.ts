@@ -132,15 +132,15 @@ export const SECTION_HEADER_SCALE_MAP: Record<SpacingLevel, number> = {
 
 // Header font family mapping
 export const HEADER_FONT_MAP: Record<HeaderFontFamily, string> = {
-  serif: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-  'sans-serif': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
-  mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+  serif: '"Libre Baskerville", Georgia, ui-serif, "Times New Roman", Times, serif',
+  'sans-serif': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
 };
 
 export const BODY_FONT_MAP: Record<BodyFontFamily, string> = {
-  serif: 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
-  'sans-serif': 'ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
-  mono: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
+  serif: '"Libre Baskerville", Georgia, ui-serif, "Times New Roman", Times, serif',
+  'sans-serif': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
+  mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace',
 };
 
 /**

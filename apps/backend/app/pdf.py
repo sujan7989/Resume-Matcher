@@ -138,28 +138,28 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
         name_color = "white"
         section_color = accent
         section_border = f"border-bottom: 2px solid {accent};"
-        font_family = "Arial, Helvetica, sans-serif"
+        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
     elif template == "latex":
         accent = "#000000"
         header_style = ""
         name_color = "#000"
         section_color = "#000"
         section_border = "border-bottom: 1px solid #000;"
-        font_family = "'Georgia', 'Times New Roman', serif"
+        font_family = "'Liberation Serif', Georgia, 'Times New Roman', serif"
     elif template == "clean":
         accent = "#374151"
         header_style = ""
         name_color = "#111"
         section_color = "#374151"
         section_border = "border-bottom: 1px solid #d1d5db;"
-        font_family = "Arial, Helvetica, sans-serif"
+        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
     elif template == "vivid":
         accent = "#7c3aed"
         header_style = f"border-left: 5px solid {accent}; padding-left: 10px; margin-bottom: 10px;"
         name_color = accent
         section_color = accent
         section_border = f"border-bottom: 2px solid {accent};"
-        font_family = "Arial, Helvetica, sans-serif"
+        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
     else:
         # swiss-single (default) - classic ATS
         accent = "#1e40af"
@@ -167,7 +167,7 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
         name_color = "#111827"
         section_color = "#1e40af"
         section_border = "border-bottom: 1.5px solid #1e40af;"
-        font_family = "Arial, Helvetica, sans-serif"
+        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
 
     page_w = "210mm" if page_size == "A4" else "215.9mm"
     page_h = "297mm" if page_size == "A4" else "279.4mm"
@@ -367,10 +367,15 @@ async def render_resume_pdf(
                 try:
                     logger.info(f"Playwright: navigating to frontend print URL template={template} max_pages={max_pages}")
                     await page.goto(url, wait_until="networkidle", timeout=_NAV_TIMEOUT_MS)
+                    
+                    # Wait for fonts to load (Google Fonts + system fonts)
                     try:
-                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
-                    except Exception:
-                        pass
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=10_000)
+                        # Additional delay to ensure fonts are fully rendered
+                        await page.wait_for_timeout(500)
+                    except Exception as e:
+                        logger.warning(f"Font wait failed: {e}")
+                    
                     # Wait for resume content to render
                     try:
                         await page.wait_for_selector(selector, timeout=10_000)
@@ -411,9 +416,10 @@ async def render_resume_pdf(
                     logger.info(f"Playwright fallback: rendering built HTML template={template}")
                     await page.set_content(html, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
                     try:
-                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
-                    except Exception:
-                        pass
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=10_000)
+                        await page.wait_for_timeout(300)
+                    except Exception as e:
+                        logger.warning(f"Font wait failed in fallback: {e}")
 
                     pdf_format = "A4" if page_size == "A4" else "Letter"
                     if max_pages == 1:

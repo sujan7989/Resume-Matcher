@@ -1919,12 +1919,17 @@ async def generate_tailored_project_endpoint(
     language = get_content_language()
 
     try:
-        job_keywords = await extract_job_keywords(job_description)
-        project_data = await generate_tailored_project(
-            resume_data=resume_data,
-            job_description=job_description,
-            job_keywords=job_keywords,
-            language=language,
+        # Run keyword extraction and project generation in parallel to avoid 504 timeout
+        # The project generation doesn't actually need keywords upfront - it uses the full JD
+        import asyncio
+        job_keywords, project_data = await asyncio.gather(
+            extract_job_keywords(job_description),
+            generate_tailored_project(
+                resume_data=resume_data,
+                job_description=job_description,
+                job_keywords={},  # Will use JD directly
+                language=language,
+            ),
         )
         project = Project.model_validate(project_data)
         return GenerateTailoredProjectResponse(project=project)

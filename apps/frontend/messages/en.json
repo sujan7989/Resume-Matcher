@@ -432,6 +432,8 @@
       "effectiveHeaderScale": "Header Scale",
       "effectiveHeaderFont": "Header Font",
       "effectiveBodyFont": "Body Font",
+      "headerFontWeight": "Hdr Weight",
+      "bodyFontWeight": "Body Weight",
       "compactHint": "Compact mode tightens spacing and line height. Margins and base font size stay literal.",
       "resetDefaults": "Reset to Defaults"
     },

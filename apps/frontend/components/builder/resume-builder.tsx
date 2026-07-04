@@ -127,7 +127,27 @@ const ResumeBuilderContent = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [, setLoadingState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [templateSettings, setTemplateSettings] =
-    useState<TemplateSettings>(DEFAULT_TEMPLATE_SETTINGS);
+    useState<TemplateSettings>(() => {
+      // Load saved settings synchronously on first render to avoid flash/mismatch
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            return {
+              ...DEFAULT_TEMPLATE_SETTINGS,
+              ...parsed,
+              margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
+              spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
+              fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
+            };
+          } catch {
+            // Fall through to default
+          }
+        }
+      }
+      return DEFAULT_TEMPLATE_SETTINGS;
+    });
   const { improvedData } = useResumePreview();
   const improvedPreview = improvedData?.data?.resume_preview;
   const improvedCoverLetter = improvedData?.data?.cover_letter;
@@ -269,25 +289,6 @@ const ResumeBuilderContent = () => {
     () => withLocalizedDefaultSections(resumeData, t),
     [resumeData, t]
   );
-
-  // Load template settings from localStorage on mount
-  useEffect(() => {
-    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        setTemplateSettings({
-          ...DEFAULT_TEMPLATE_SETTINGS,
-          ...parsed,
-          margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
-          spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
-          fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
-        });
-      } catch {
-        // Use defaults
-      }
-    }
-  }, []);
 
   // Save template settings to localStorage when they change
   useEffect(() => {
@@ -716,16 +717,6 @@ const ResumeBuilderContent = () => {
   const handleAddProject = () => {
     if (!generatedProject) return;
     const currentProjects = resumeData.personalProjects || [];
-    // Cap at 3 JD-generated projects (total projects can be more if user manually adds)
-    if (currentProjects.length >= 3) {
-      showNotification(
-        'Your resume already has 3 or more projects. Remove one before adding a new generated project.',
-        'warning'
-      );
-      setShowProjectDialog(false);
-      setGeneratedProject(null);
-      return;
-    }
     // Generate a unique ID for the new project
     const newId =
       (currentProjects.reduce((max, p) => (p.id && p.id > max ? p.id : max), 0) || 0) + 1;
@@ -733,11 +724,13 @@ const ResumeBuilderContent = () => {
       ...generatedProject,
       id: newId,
     };
-    setResumeData({
+    const updated = {
       ...resumeData,
       personalProjects: [...currentProjects, newProject],
-    });
+    };
+    setResumeData(updated);
     setHasUnsavedChanges(true);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setShowProjectDialog(false);
     setGeneratedProject(null);
     showNotification('Project added to resume. Save to keep it.', 'success');
@@ -1081,26 +1074,26 @@ const ResumeBuilderContent = () => {
                           Generate Tailored Project
                         </h3>
                       </div>
-                      <div className="p-4">
-                        <p className="font-mono text-xs text-ink-soft mb-1">
-                          Generate a relevant personal project based on the job description and your resume.
+                      <div className="p-4 space-y-3">
+                        <p className="font-mono text-xs text-ink-soft">
+                          Generate a project tailored to the JD using your existing skills. Review and add to resume.
                         </p>
-                        <p className="font-mono text-xs text-steel-grey mb-3">
-                          Projects on resume: <strong>{resumeData.personalProjects?.length ?? 0}</strong> / 3 max recommended
+                        <p className="font-mono text-xs text-steel-grey">
+                          Current projects on resume: <strong>{resumeData.personalProjects?.length ?? 0}</strong>
+                          {(resumeData.personalProjects?.length ?? 0) >= 3 && (
+                            <span className="ml-2 text-amber-600">(3 shown — consider replacing one)</span>
+                          )}
                         </p>
                         <Button
                           className="w-full"
                           size="sm"
                           onClick={handleGenerateProject}
-                          disabled={isGeneratingProject || (resumeData.personalProjects?.length ?? 0) >= 3}
-                          title={(resumeData.personalProjects?.length ?? 0) >= 3 ? 'Remove a project first to add a generated one' : undefined}
+                          disabled={isGeneratingProject}
                         >
                           {isGeneratingProject ? (
                             <><Loader2 className="w-3 h-3 animate-spin" /> Generating...</>
-                          ) : (resumeData.personalProjects?.length ?? 0) >= 3 ? (
-                            <>Max 3 projects reached</>
                           ) : (
-                            <><Plus className="w-3 h-3" /> Generate Project</>
+                            <><Plus className="w-3 h-3" /> Generate JD-Tailored Project</>
                           )}
                         </Button>
                       </div>
@@ -1217,18 +1210,30 @@ const ResumeBuilderContent = () => {
                     <ATSScorePanel
                       result={atsResult}
                       onReanalyze={() => handleAnalyzeATS(true)}
-                      onAddKeyword={(keyword) => {
-                        setResumeData(prev => ({
-                          ...prev,
+                      onAddKeyword={async (keyword) => {
+                        // Update state with new keyword
+                        const updated = {
+                          ...resumeData,
                           additional: {
-                            ...prev.additional,
+                            ...resumeData.additional,
                             technicalSkills: [
-                              ...(prev.additional?.technicalSkills || []),
-                              ...(prev.additional?.technicalSkills?.includes(keyword) ? [] : [keyword]),
+                              ...(resumeData.additional?.technicalSkills || []),
+                              ...(resumeData.additional?.technicalSkills?.includes(keyword) ? [] : [keyword]),
                             ],
                           },
-                        }));
+                        };
+                        setResumeData(updated);
                         setHasUnsavedChanges(true);
+                        // Auto-save immediately so re-analyze sees the keyword
+                        if (resumeId) {
+                          try {
+                            await updateResume(resumeId, updated);
+                            setLastSavedData(updated);
+                            setHasUnsavedChanges(false);
+                          } catch (err) {
+                            console.warn('Auto-save after keyword add failed:', err);
+                          }
+                        }
                       }}
                     />
                   )}
@@ -1338,7 +1343,8 @@ const ResumeBuilderContent = () => {
               Generated Tailored Project
             </DialogTitle>
             <DialogDescription className="font-mono text-xs text-ink-soft mt-2">
-              Review the generated project before adding it to your resume.
+              This project was generated based on your resume skills and the job description.
+              Review it and choose to add it or try again.
             </DialogDescription>
           </DialogHeader>
           {generatedProject && (
@@ -1378,7 +1384,20 @@ const ResumeBuilderContent = () => {
                     </ul>
                   </div>
                 )}
+                {'rationale' in generatedProject && (generatedProject as { rationale?: string }).rationale && (
+                  <div className="bg-blue-50 border border-blue-200 p-2 rounded-sm">
+                    <h4 className="font-mono text-xs font-bold uppercase tracking-wider text-blue-700 mb-1">
+                      Why This Project
+                    </h4>
+                    <p className="text-xs text-blue-800">{(generatedProject as { rationale?: string }).rationale}</p>
+                  </div>
+                )}
               </div>
+              {(resumeData.personalProjects?.length ?? 0) >= 3 && (
+                <p className="mt-3 text-xs font-mono text-amber-700 bg-amber-50 border border-amber-200 p-2">
+                  ⚠ You already have {resumeData.personalProjects?.length} projects. Adding this will make {(resumeData.personalProjects?.length ?? 0) + 1} total. Consider removing a less relevant one from the Resume tab.
+                </p>
+              )}
             </div>
           )}
           <DialogFooter className="p-4 bg-secondary border-t border-black flex-row justify-end gap-3">

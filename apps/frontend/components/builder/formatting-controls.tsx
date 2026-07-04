@@ -431,7 +431,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
               {/* Header Font Weight (Thickness) */}
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs w-16 text-ink-soft">
-                  {t('builder.formatting.headerFontWeight') || 'Hdr Weight'}:
+                  Hdr Weight:
                 </span>
                 <div className="flex gap-1">
                   {([300, 400, 500, 600, 700] as const).map((weight) => (
@@ -454,7 +454,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
               {/* Body Font Weight (Thickness) */}
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs w-16 text-ink-soft">
-                  {t('builder.formatting.bodyFontWeight') || 'Body Weight'}:
+                  Body Weight:
                 </span>
                 <div className="flex gap-1">
                   {([300, 400, 500, 600, 700] as const).map((weight) => (

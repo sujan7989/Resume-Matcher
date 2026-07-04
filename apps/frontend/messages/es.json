@@ -432,6 +432,8 @@
       "effectiveHeaderScale": "Escala de encabezados",
       "effectiveHeaderFont": "Fuente de encabezados",
       "effectiveBodyFont": "Fuente del cuerpo",
+      "headerFontWeight": "Peso Hdr",
+      "bodyFontWeight": "Peso Body",
       "compactHint": "El modo compacto reduce el espaciado y el interlineado. Los márgenes y la fuente base se mantienen.",
       "resetDefaults": "Restablecer valores"
     },

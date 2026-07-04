@@ -432,6 +432,8 @@
       "effectiveHeaderScale": "标题缩放",
       "effectiveHeaderFont": "标题字体",
       "effectiveBodyFont": "正文字体",
+      "headerFontWeight": "标题粗细",
+      "bodyFontWeight": "正文粗细",
       "compactHint": "紧凑模式会收紧间距与行高；页边距与正文字号保持不变。",
       "resetDefaults": "恢复默认设置"
     },

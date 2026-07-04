@@ -300,9 +300,8 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
           .resume-print {
             width: 100%;
             background: white;
-            /* Prevent extra blank page at bottom */
+            /* Remove overflow hidden - it cuts off content and doesn't help with blank pages */
             display: block;
-            overflow: hidden;
           }
           /* Remove all bottom padding/margin from last section to prevent whitespace */
           .resume-section:last-child {

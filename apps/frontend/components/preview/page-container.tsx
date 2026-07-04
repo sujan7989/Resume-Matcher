@@ -51,6 +51,13 @@ export function PageContainer({
     ? Math.min(maxContentHeight, contentEnd - contentOffset)
     : maxContentHeight;
 
+  // For the last page, shrink the visual page height to content + margins so no blank space shows.
+  // For earlier pages, always show the full page height (content fills the page).
+  const isLastPage = contentEnd !== undefined && contentEnd - contentOffset < maxContentHeight;
+  const visiblePageHeight = isLastPage
+    ? marginTopPx + actualContentHeight + marginBottomPx
+    : pageHeightPx;
+
   return (
     <div className="relative flex flex-col items-center">
       {/* Page wrapper with scale transform */}
@@ -58,9 +65,9 @@ export function PageContainer({
         className="relative bg-white border-2 border-black shadow-sw-card origin-top"
         style={{
           width: pageWidthPx,
-          height: pageHeightPx,
+          height: visiblePageHeight,
           transform: `scale(${scale})`,
-          marginBottom: `${pageHeightPx * scale - pageHeightPx + 16}px`,
+          marginBottom: `${visiblePageHeight * scale - visiblePageHeight + 16}px`,
         }}
       >
         {/* Margin guides overlay */}

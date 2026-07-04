@@ -432,6 +432,8 @@
       "effectiveHeaderScale": "見出しスケール",
       "effectiveHeaderFont": "見出しフォント",
       "effectiveBodyFont": "本文フォント",
+      "headerFontWeight": "見出し太さ",
+      "bodyFontWeight": "本文太さ",
       "compactHint": "コンパクトモードでは間隔と行間が詰まります。余白と本文フォントサイズは維持されます。",
       "resetDefaults": "デフォルトに戻す"
     },

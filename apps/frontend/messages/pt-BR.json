@@ -432,6 +432,8 @@
       "effectiveHeaderScale": "Escala do Cabeçalho",
       "effectiveHeaderFont": "Fonte do Cabeçalho",
       "effectiveBodyFont": "Fonte do Corpo",
+      "headerFontWeight": "Peso Hdr",
+      "bodyFontWeight": "Peso Body",
       "compactHint": "O modo compacto reduz espaçamento e altura da linha. Margens e tamanho de fonte base permanecem literais.",
       "resetDefaults": "Restaurar Padrões"
     },

@@ -1,3 +1,4 @@
+# deployed: 2026-07-04T23.05.20Z
 """ATS (Applicant Tracking System) analysis endpoints."""
 
 import json

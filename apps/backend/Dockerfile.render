@@ -25,6 +25,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install Playwright chromium (best effort - fpdf2 fallback if unavailable)
 RUN playwright install chromium && playwright install-deps chromium || echo "Playwright install failed - fpdf2 fallback will be used"
 
+# Cache bust: force fresh copy of app code on every deploy
+ARG CACHEBUST=1
 COPY app ./app
 COPY pyproject.toml .
 

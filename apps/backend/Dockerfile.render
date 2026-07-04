@@ -1,13 +1,13 @@
-# Backend Dockerfile for Render
-# Uses $PORT env var injected by Render (default 10000)
+# Backend Dockerfile for Render - rebuilt 2026-07-04
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
-# System deps for Playwright Chromium + web fonts for PDF rendering
-# Fonts: Liberation = metric-compatible with Arial/Times New Roman
+WORKDIR /app
+
+# System deps - split into separate layer to control caching
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
@@ -17,21 +17,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-liberation fonts-liberation2 fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright chromium (best effort - fpdf2 fallback if unavailable)
 RUN playwright install chromium && playwright install-deps chromium || echo "Playwright install failed - fpdf2 fallback will be used"
 
-# Cache bust: force fresh copy of app code on every deploy
-# This ARG is intentionally NOT used — the .deploy-ts file inside app/ changes each commit
-COPY app ./app
+# Application code - always copied fresh (no registry cache for this layer)
+COPY app/ /app/app/
 COPY pyproject.toml .
 
 RUN mkdir -p /app/data
 
-# Use shell form so $PORT is expanded at runtime from Render's injected env var
-# Render injects PORT automatically - do NOT hardcode it here
 CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-10000}

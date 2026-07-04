@@ -5,9 +5,12 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
+# Cache bust: increment this value to force Docker to rebuild from this layer
+ARG CACHE_BUST=2
+
 # Install system deps for Playwright + fonts for PDF rendering
 # Fonts: Liberation = metric-compatible with Arial/Times New Roman
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "Cache bust: ${CACHE_BUST}" && apt-get update && apt-get install -y --no-install-recommends \
     curl \
     libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 \
     libcups2 libdrm2 libxkbcommon0 libxcomposite1 \

@@ -52,19 +52,15 @@ async def db_test() -> JSONResponse:
             "using_postgres": _is_postgres(),
             "db_url_prefix": _DATABASE_URL[:50] if _DATABASE_URL else "SQLite",
         })
-    return HealthResponse(status="healthy")
-async def get_status() -> StatusResponse:
-    """Get comprehensive application status.
 
-    Each subsystem check is isolated: a failure in the LLM health probe or the
-    database stats query degrades only its own field instead of 500-ing the
-    whole endpoint, so the status page can still report partial/degraded state.
-    """
+
+@router.get("/status", response_model=StatusResponse)
+async def get_status() -> StatusResponse:
+    """Get comprehensive application status."""
     llm_configured = False
     llm_healthy = False
     try:
         config = get_llm_config()
-        # ollama / openai_compatible run without a key, matching check_llm_health.
         llm_configured = bool(config.api_key) or config.provider in ("ollama", "openai_compatible")
         llm_status = await check_llm_health(config)
         llm_healthy = bool(llm_status.get("healthy"))

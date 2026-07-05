@@ -95,7 +95,7 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 
 async function fetchResumeData(id: string): Promise<ResumeData> {
   // SSR context: must use Render backend URL directly, not localhost
-  const backendUrl = process.env.BACKEND_ORIGIN || 'https://resume-matcher-gw36.onrender.com';
+  const backendUrl = process.env.BACKEND_ORIGIN || 'https://resume-matcher-6kv2.onrender.com';
   const res = await fetch(`${backendUrl}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`, {
     cache: 'no-store',
   });

@@ -1,9 +1,9 @@
 import type { NextConfig } from 'next';
 
 // CRITICAL: For PDF downloads to work on Vercel, BACKEND_ORIGIN MUST be set
-// to the production backend URL (e.g., https://resume-matcher-gw36.onrender.com)
+// to the production backend URL (e.g., https://resume-matcher-6kv2.onrender.com)
 // Do NOT use localhost (http://127.0.0.1:8000) in production - Vercel cannot reach it
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'https://resume-matcher-gw36.onrender.com';
+const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN || 'https://resume-matcher-6kv2.onrender.com';
 
 // Log backend configuration for debugging
 if (typeof window === 'undefined') {

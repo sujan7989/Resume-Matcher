@@ -1,9 +1,10 @@
-# Backend Dockerfile for Render - rebuilt 2026-07-04
+# Backend Dockerfile for Render - v2 SSL fix 2026-07-05
 FROM python:3.13-slim-bookworm
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    APP_VERSION=2026-07-05-ssl
 
 WORKDIR /app
 
@@ -22,7 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 RUN playwright install chromium && playwright install-deps chromium || echo "Playwright install failed - fpdf2 fallback will be used"
 
-# Application code - always copied fresh (no registry cache for this layer)
+# Application code
 COPY app/ /app/app/
 COPY pyproject.toml .
 

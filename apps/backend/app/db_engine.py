@@ -73,7 +73,7 @@ def _make_async_pg_url() -> str:
     from urllib.parse import quote
     user = quote(c["username"], safe="")
     pwd = quote(c["password"], safe="")
-    return f"postgresql+asyncpg://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
+    return f"postgresql+asyncpg://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}?ssl=require"
 
 
 def _make_sync_pg_url() -> str:
@@ -88,7 +88,7 @@ def _make_sync_pg_url() -> str:
     from urllib.parse import quote
     user = quote(c["username"], safe="")
     pwd = quote(c["password"], safe="")
-    return f"postgresql+psycopg2://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
+    return f"postgresql+psycopg2://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}?sslmode=require"
 
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:
@@ -109,12 +109,6 @@ def make_async_engine(path: Path) -> AsyncEngine:
     """Create async engine. Uses PostgreSQL if DATABASE_URL is set, else SQLite."""
     if _is_postgres():
         url = _make_async_pg_url()
-        c = _parse_db_components()
-        import logging
-        logging.getLogger(__name__).info(
-            "DB async engine: host=%s port=%s user=%s db=%s",
-            c["host"], c["port"], c["username"], c["database"]
-        )
         return create_async_engine(
             url,
             future=True,
@@ -122,6 +116,7 @@ def make_async_engine(path: Path) -> AsyncEngine:
             max_overflow=10,
             pool_pre_ping=True,
             pool_timeout=30,
+            connect_args={"ssl": "require"},
         )
     engine = create_async_engine(_sqlite_url(path, driver="aiosqlite"), future=True)
     event.listen(engine.sync_engine, "connect", _apply_sqlite_pragmas)
@@ -132,13 +127,13 @@ def make_sync_engine(path: Path) -> Engine:
     """Create sync engine. Uses PostgreSQL if DATABASE_URL is set, else SQLite."""
     if _is_postgres():
         url = _make_sync_pg_url()
-        c = _parse_db_components()
-        import logging
-        logging.getLogger(__name__).info(
-            "DB sync engine: host=%s port=%s user=%s db=%s",
-            c["host"], c["port"], c["username"], c["database"]
+        return create_engine(
+            url,
+            future=True,
+            pool_pre_ping=True,
+            pool_timeout=30,
+            connect_args={"sslmode": "require"},
         )
-        return create_engine(url, future=True, pool_pre_ping=True, pool_timeout=30)
     engine = create_engine(_sqlite_url(path, driver=""), future=True)
     event.listen(engine, "connect", _apply_sqlite_pragmas)
     return engine

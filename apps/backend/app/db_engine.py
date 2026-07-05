@@ -40,8 +40,8 @@ def _parse_db_components() -> dict:
     cred_part, hostdb_part = rest.rsplit("@", 1)
     # FIRST ':' separates username from password
     colon_idx = cred_part.index(":")
-    username = cred_part[:colon_idx]
-    password = cred_part[colon_idx + 1:]
+    username = cred_part[:colon_idx].strip()
+    password = cred_part[colon_idx + 1:].strip()
     # Split host/port from database
     if "/" in hostdb_part:
         host_port, database = hostdb_part.split("/", 1)

@@ -108,6 +108,10 @@ def _sqlite_url(path: Path, *, driver: str) -> str:
 def make_async_engine(path: Path) -> AsyncEngine:
     """Create async engine. Uses PostgreSQL if DATABASE_URL is set, else SQLite."""
     if _is_postgres():
+        import ssl as ssl_module
+        ssl_ctx = ssl_module.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode = ssl_module.CERT_NONE
         url = _make_async_pg_url()
         return create_async_engine(
             url,
@@ -116,7 +120,7 @@ def make_async_engine(path: Path) -> AsyncEngine:
             max_overflow=10,
             pool_pre_ping=True,
             pool_timeout=30,
-            connect_args={"ssl": True},
+            connect_args={"ssl": ssl_ctx},
         )
     engine = create_async_engine(_sqlite_url(path, driver="aiosqlite"), future=True)
     event.listen(engine.sync_engine, "connect", _apply_sqlite_pragmas)
@@ -132,7 +136,7 @@ def make_sync_engine(path: Path) -> Engine:
             future=True,
             pool_pre_ping=True,
             pool_timeout=30,
-            connect_args={"sslmode": "require"},
+            connect_args={"sslmode": "require", "sslrootcert": "disable"},
         )
     engine = create_engine(_sqlite_url(path, driver=""), future=True)
     event.listen(engine, "connect", _apply_sqlite_pragmas)

@@ -1,8 +1,10 @@
 """Health check and status endpoints."""
 
 import logging
+import traceback
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from app.database import db
 from app.llm import check_llm_health, get_llm_config
@@ -24,14 +26,33 @@ _EMPTY_DB_STATS = {
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check() -> HealthResponse:
-    """Lightweight liveness check for Docker HEALTHCHECK.
-
-    Does NOT call the LLM provider. Use GET /status for full LLM health.
-    """
+    """Lightweight liveness check for Docker HEALTHCHECK."""
     return HealthResponse(status="healthy")
 
 
-@router.get("/status", response_model=StatusResponse)
+@router.get("/db-test")
+async def db_test() -> JSONResponse:
+    """Debug: test database connection and return actual error if any."""
+    try:
+        resumes = await db.list_resumes()
+        from app.db_engine import _DATABASE_URL, _is_postgres
+        return JSONResponse({
+            "status": "ok",
+            "resume_count": len(resumes),
+            "using_postgres": _is_postgres(),
+            "db_url_prefix": _DATABASE_URL[:50] if _DATABASE_URL else "SQLite",
+        })
+    except Exception as e:
+        from app.db_engine import _DATABASE_URL, _is_postgres
+        return JSONResponse(status_code=500, content={
+            "status": "error",
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "traceback": traceback.format_exc()[-1000:],
+            "using_postgres": _is_postgres(),
+            "db_url_prefix": _DATABASE_URL[:50] if _DATABASE_URL else "SQLite",
+        })
+    return HealthResponse(status="healthy")
 async def get_status() -> StatusResponse:
     """Get comprehensive application status.
 

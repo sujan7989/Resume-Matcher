@@ -73,7 +73,7 @@ def _make_async_pg_url() -> str:
     from urllib.parse import quote
     user = quote(c["username"], safe="")
     pwd = quote(c["password"], safe="")
-    return f"postgresql+asyncpg://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}?ssl=require"
+    return f"postgresql+asyncpg://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
 
 
 def _make_sync_pg_url() -> str:
@@ -88,7 +88,7 @@ def _make_sync_pg_url() -> str:
     from urllib.parse import quote
     user = quote(c["username"], safe="")
     pwd = quote(c["password"], safe="")
-    return f"postgresql+psycopg2://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}?sslmode=require"
+    return f"postgresql+psycopg2://{user}:{pwd}@{c['host']}:{c['port']}/{c['database']}"
 
 
 def _apply_sqlite_pragmas(dbapi_connection: Any, _connection_record: Any) -> None:

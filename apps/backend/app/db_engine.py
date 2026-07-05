@@ -116,7 +116,7 @@ def make_async_engine(path: Path) -> AsyncEngine:
             max_overflow=10,
             pool_pre_ping=True,
             pool_timeout=30,
-            connect_args={"ssl": "require"},
+            connect_args={"ssl": True},
         )
     engine = create_async_engine(_sqlite_url(path, driver="aiosqlite"), future=True)
     event.listen(engine.sync_engine, "connect", _apply_sqlite_pragmas)

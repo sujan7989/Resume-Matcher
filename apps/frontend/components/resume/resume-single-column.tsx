@@ -67,7 +67,9 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
-      displayText = value.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      // Show the label name as display text for professional appearance
+      // e.g. show "LinkedIn" instead of "linkedin.com/in/username"
+      displayText = label === 'Website' ? 'Portfolio' : label;
     }
 
     return (
@@ -310,36 +312,36 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
 
           {/* Contact - Own line, centered */}
           <div
-            className={`flex flex-wrap justify-center gap-x-1 gap-y-1 ${baseStyles['resume-meta']}`}
+            className={`flex flex-wrap justify-center gap-x-2 gap-y-1 ${baseStyles['resume-meta']}`}
           >
             {renderContactDetail('Email', personalInfo.email, 'mailto:')}
             {personalInfo.phone && (
               <>
-                <span className={baseStyles['text-muted']}>,</span>
+                <span className={baseStyles['text-muted']}>·</span>
                 {renderContactDetail('Phone', personalInfo.phone, 'tel:')}
               </>
             )}
             {personalInfo.location && (
               <>
-                <span className={baseStyles['text-muted']}>,</span>
+                <span className={baseStyles['text-muted']}>·</span>
                 {renderContactDetail('Location', personalInfo.location)}
               </>
             )}
             {personalInfo.website && (
               <>
-                <span className={baseStyles['text-muted']}>,</span>
+                <span className={baseStyles['text-muted']}>·</span>
                 {renderContactDetail('Website', personalInfo.website)}
               </>
             )}
             {personalInfo.linkedin && (
               <>
-                <span className={baseStyles['text-muted']}>,</span>
+                <span className={baseStyles['text-muted']}>·</span>
                 {renderContactDetail('LinkedIn', personalInfo.linkedin)}
               </>
             )}
             {personalInfo.github && (
               <>
-                <span className={baseStyles['text-muted']}>,</span>
+                <span className={baseStyles['text-muted']}>·</span>
                 {renderContactDetail('GitHub', personalInfo.github)}
               </>
             )}

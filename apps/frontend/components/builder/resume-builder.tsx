@@ -197,6 +197,9 @@ const ResumeBuilderContent = () => {
   const [atsLoading, setAtsLoading] = useState(false);
   const [atsError, setAtsError] = useState<string | null>(null);
   const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
+  // Before/After score tracking
+  const [atsBaselineScore, setAtsBaselineScore] = useState<number | null>(null); // score before changes
+  const [showScoreComparison, setShowScoreComparison] = useState(false);
   // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
   const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
 
@@ -680,6 +683,13 @@ const ResumeBuilderContent = () => {
       const result = await analyzeATSMatch(resumeId, effectiveJobId);
       setAtsResult(result);
       setAtsCacheKey(cacheKey);
+      // Store baseline score on first analysis; on re-analyze show comparison
+      if (atsBaselineScore === null) {
+        setAtsBaselineScore(result.ats_score.overall);
+        setShowScoreComparison(false);
+      } else {
+        setShowScoreComparison(true);
+      }
     } catch (err) {
       console.error('ATS analysis failed:', err);
       // Parse a clean user-facing message from the raw error
@@ -1003,6 +1013,46 @@ const ResumeBuilderContent = () => {
                       {/* Score summary visible in left panel */}
                       {atsResult && !atsLoading && (
                         <div className="p-4 space-y-3">
+                          {/* Before/After comparison when re-analyzed after changes */}
+                          {showScoreComparison && atsBaselineScore !== null && (
+                            <div className="border-2 border-blue-200 bg-blue-50 p-3 space-y-2">
+                              <div className="font-mono text-xs font-bold uppercase text-blue-800">Score Impact</div>
+                              <div className="flex items-center gap-4">
+                                <div className="text-center">
+                                  <div className="font-mono text-xs text-ink-soft uppercase">Before</div>
+                                  <div className={`font-mono text-2xl font-bold ${
+                                    atsBaselineScore >= 81 ? 'text-green-700' :
+                                    atsBaselineScore >= 61 ? 'text-blue-700' :
+                                    atsBaselineScore >= 41 ? 'text-orange-600' : 'text-red-600'
+                                  }`}>{atsBaselineScore}</div>
+                                </div>
+                                <div className="text-xl text-ink-soft">→</div>
+                                <div className="text-center">
+                                  <div className="font-mono text-xs text-ink-soft uppercase">After</div>
+                                  <div className={`font-mono text-2xl font-bold ${
+                                    atsResult.ats_score.overall >= 81 ? 'text-green-700' :
+                                    atsResult.ats_score.overall >= 61 ? 'text-blue-700' :
+                                    atsResult.ats_score.overall >= 41 ? 'text-orange-600' : 'text-red-600'
+                                  }`}>{atsResult.ats_score.overall}</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="font-mono text-xs text-ink-soft uppercase">Change</div>
+                                  <div className={`font-mono text-2xl font-bold ${
+                                    atsResult.ats_score.overall > atsBaselineScore ? 'text-green-700' :
+                                    atsResult.ats_score.overall < atsBaselineScore ? 'text-red-600' : 'text-ink-soft'
+                                  }`}>
+                                    {atsResult.ats_score.overall > atsBaselineScore ? '+' : ''}{atsResult.ats_score.overall - atsBaselineScore}
+                                  </div>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => { setAtsBaselineScore(null); setShowScoreComparison(false); }}
+                                className="text-xs font-mono text-blue-600 hover:text-blue-800"
+                              >
+                                Reset baseline
+                              </button>
+                            </div>
+                          )}
                           {/* Big score */}
                           <div className="flex items-center gap-4">
                             <div className={`text-4xl font-bold font-mono ${
@@ -1039,18 +1089,40 @@ const ResumeBuilderContent = () => {
 
                   {/* Project Optimizer — analyze existing + generate JD-aligned replacements */}
                   {resumeId && jobId && (
-                    <ProjectOptimizer
-                      resumeId={resumeId}
-                      jobId={jobId}
-                      projects={resumeData.personalProjects || []}
-                      onApply={(updatedProjects) => {
-                        const updated = { ...resumeData, personalProjects: updatedProjects };
-                        setResumeData(updated);
-                        setHasUnsavedChanges(true);
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-                        showNotification('Projects updated. Save to keep changes.', 'success');
-                      }}
-                    />
+                    <>
+                      <ProjectOptimizer
+                        resumeId={resumeId}
+                        jobId={jobId}
+                        projects={resumeData.personalProjects || []}
+                        onApply={(updatedProjects) => {
+                          const updated = { ...resumeData, personalProjects: updatedProjects };
+                          setResumeData(updated);
+                          setHasUnsavedChanges(true);
+                          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+                          showNotification('Projects updated. Save to keep changes.', 'success');
+                        }}
+                      />
+                      {/* Show re-analyze button after changes have been made */}
+                      {atsResult && (hasUnsavedChanges || showScoreComparison) && (
+                        <div className="border-2 border-green-600 bg-green-50 p-3 space-y-2">
+                          <p className="font-mono text-xs text-green-800 font-bold">
+                            ✓ Changes made. Re-analyze to see score impact.
+                          </p>
+                          <Button
+                            className="w-full bg-green-700 hover:bg-green-800 text-white"
+                            size="sm"
+                            onClick={() => handleAnalyzeATS(true)}
+                            disabled={atsLoading}
+                          >
+                            {atsLoading ? (
+                              <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</>
+                            ) : (
+                              '📊 Re-analyze — See Before vs After Score'
+                            )}
+                          </Button>
+                        </div>
+                      )}
+                    </>
                   )}
 
                   {/* Collapsible info — moved to bottom */}

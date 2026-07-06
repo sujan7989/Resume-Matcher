@@ -240,12 +240,16 @@ JOB DESCRIPTION:
 CANDIDATE'S SKILLS AND EXPERIENCE (use ONLY these):
 {resume_json}
 
+ALREADY GENERATED REPLACEMENTS (your project MUST be completely different from these — different domain, different tech focus, different problem solved):
+{already_generated}
+
 Generate ONE replacement project that:
 1. Uses ONLY skills the candidate already has from their resume
 2. Directly addresses what the JD requires
 3. Would score 80+ for relevance against this JD
 4. Is realistic for the candidate's level
 5. Does NOT invent skills or technologies not in their resume
+6. Is COMPLETELY DIFFERENT from any project in ALREADY GENERATED REPLACEMENTS above — different name, different domain, different approach
 
 Return ONLY valid JSON:
 {{

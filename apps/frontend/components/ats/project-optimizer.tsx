@@ -112,24 +112,28 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
     });
   };
 
-  // ── Step 3: Generate replacements ─────────────────────────────────────────
+  // ── Step 3: Generate replacements (sequential for uniqueness) ────────────
   const handleGenerateReplacements = async () => {
     if (selectedToReplace.size === 0) return;
     setStep('replacing');
 
-    // Initialize replacement slots
+    const indices = Array.from(selectedToReplace);
     const initMap = new Map<number, PendingReplacement>();
-    selectedToReplace.forEach(idx => {
+    indices.forEach(idx => {
       initMap.set(idx, { projectIndex: idx, generated: null, generating: true, error: null, accepted: null });
     });
     setReplacements(new Map(initMap));
 
-    // Generate all in parallel
-    const tasks = Array.from(selectedToReplace).map(async (idx) => {
+    // Generate SEQUENTIALLY so each knows the names of all previously generated ones
+    // This guarantees all 3 replacements are distinct projects
+    const generatedNames: string[] = [];
+
+    for (const idx of indices) {
       const relevanceItem = analysis.find(a => a.index === idx);
       const reason = relevanceItem?.reason ?? 'Low relevance to job description';
       try {
-        const generated = await replaceProject(resumeId, jobId, idx, reason);
+        const generated = await replaceProject(resumeId, jobId, idx, reason, [...generatedNames]);
+        generatedNames.push(generated.name); // track for uniqueness in next iterations
         setReplacements(prev => {
           const next = new Map(prev);
           next.set(idx, { projectIndex: idx, generated, generating: false, error: null, accepted: null });
@@ -142,20 +146,12 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
           : raw.length > 120 ? 'Generation failed. Retry.' : raw;
         setReplacements(prev => {
           const next = new Map(prev);
-          next.set(idx, {
-            projectIndex: idx,
-            generated: null,
-            generating: false,
-            error: msg,
-            accepted: null,
-          });
+          next.set(idx, { projectIndex: idx, generated: null, generating: false, error: msg, accepted: null });
           return next;
         });
       }
-    });
+    }
 
-    await Promise.all(tasks);
-    // Only move to preview if at least one generated successfully; otherwise stay replacing with errors visible
     setStep('preview');
   };
 
@@ -163,6 +159,11 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
   const handleRegenerate = async (idx: number) => {
     const relevanceItem = analysis.find(a => a.index === idx);
     const reason = relevanceItem?.reason ?? 'Low relevance to job description';
+    // Collect names of already-accepted/generated projects to avoid duplicates
+    const existingNames: string[] = [];
+    replacements.forEach((r, i) => {
+      if (i !== idx && r.generated?.name) existingNames.push(r.generated.name);
+    });
     setReplacements(prev => {
       const next = new Map(prev);
       const existing = next.get(idx);
@@ -170,7 +171,7 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
       return next;
     });
     try {
-      const generated = await replaceProject(resumeId, jobId, idx, reason);
+      const generated = await replaceProject(resumeId, jobId, idx, reason, existingNames);
       setReplacements(prev => {
         const next = new Map(prev);
         next.set(idx, { projectIndex: idx, generated, generating: false, error: null, accepted: null });
@@ -183,10 +184,7 @@ export function ProjectOptimizer({ resumeId, jobId, projects, onApply }: Project
         : raw2.length > 120 ? 'Generation failed. Retry.' : raw2;
       setReplacements(prev => {
         const next = new Map(prev);
-        next.set(idx, {
-          projectIndex: idx, generated: null, generating: false,
-          error: msg2, accepted: null,
-        });
+        next.set(idx, { projectIndex: idx, generated: null, generating: false, error: msg2, accepted: null });
         return next;
       });
     }

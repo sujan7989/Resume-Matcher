@@ -199,6 +199,7 @@ class ReplaceProjectRequest(BaseModel):
     job_id: str
     project_index: int   # 0-based index of the project to replace
     replace_reason: str  # Why it's being replaced (from analyze-projects)
+    already_generated: list[str] = []  # Names of already-generated replacements for uniqueness
 
 
 class ReplaceProjectResponse(BaseModel):
@@ -210,6 +211,7 @@ class ReplaceProjectResponse(BaseModel):
 async def replace_project(request: ReplaceProjectRequest) -> ReplaceProjectResponse:
     """Generate a JD-tailored replacement for a specific project.
     The replacement uses only skills/tech from the candidate's existing resume.
+    already_generated: list of previously generated project names to ensure uniqueness.
     """
     resume = await db.get_resume(request.resume_id)
     if not resume:
@@ -230,7 +232,6 @@ async def replace_project(request: ReplaceProjectRequest) -> ReplaceProjectRespo
 
     config = get_llm_config()
 
-    # Pass resume without the project list to keep context tight
     resume_context = {
         "personalInfo": processed.get("personalInfo", {}),
         "summary": processed.get("summary", ""),
@@ -238,25 +239,28 @@ async def replace_project(request: ReplaceProjectRequest) -> ReplaceProjectRespo
         "additional": processed.get("additional", {}),
     }
 
+    # Format already-generated context for the prompt
+    already_str = "None" if not request.already_generated else "\n".join(
+        f"- {name}" for name in request.already_generated
+    )
+
     prompt = REPLACE_PROJECT_PROMPT.format(
         existing_project=json.dumps(existing_project, indent=2),
         replace_reason=request.replace_reason,
         job_description=job.get("content", ""),
         resume_json=json.dumps(resume_context, indent=2),
+        already_generated=already_str,
     )
 
     try:
         result = await complete_json(prompt=prompt, config=config, max_tokens=600, schema_type="enrichment")
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate replacement project")
-        # Preserve the original project ID
         result["id"] = existing_project.get("id", request.project_index + 1)
-        # Ensure description is always a list of strings
         if not isinstance(result.get("description"), list):
             result["description"] = []
         else:
             result["description"] = [str(d) for d in result["description"] if d]
-        # Ensure required fields have defaults
         result.setdefault("name", existing_project.get("name", "New Project"))
         result.setdefault("role", existing_project.get("role", "Developer"))
         result.setdefault("years", existing_project.get("years", ""))

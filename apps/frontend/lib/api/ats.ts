@@ -132,13 +132,15 @@ export async function replaceProject(
   resumeId: string,
   jobId: string,
   projectIndex: number,
-  replaceReason: string
+  replaceReason: string,
+  alreadyGenerated: string[] = []
 ): Promise<ReplacementProject> {
   const res = await apiPost('/ats/replace-project', {
     resume_id: resumeId,
     job_id: jobId,
     project_index: projectIndex,
     replace_reason: replaceReason,
+    already_generated: alreadyGenerated,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => '');

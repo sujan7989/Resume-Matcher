@@ -1094,6 +1094,7 @@ async def complete_json(
                 kwargs["response_format"] = {"type": "json_object"}
 
             response = await router.acompletion(**kwargs)
+
             content = _extract_choice_text(response.choices[0])
 
             if not content:
@@ -1161,10 +1162,22 @@ async def complete_json(
                 continue
             raise
 
-        except Exception:
+        except Exception as e:
+            # Groq-specific: "Failed to generate JSON" — disable JSON mode and retry
+            err_str = str(e).lower()
+            if (
+                "failed to generate json" in err_str
+                or "json_validate_failed" in err_str
+                or ("badrequest" in type(e).__name__.lower() and "json" in err_str)
+            ) and use_json_mode and not json_mode_failed:
+                json_mode_failed = True
+                logging.warning(
+                    "Groq JSON mode failed (%s), retrying without response_format (attempt %d)",
+                    type(e).__name__, attempt + 1,
+                )
+                if attempt < retries:
+                    continue
             # Transport errors — Router already retried with backoff.
-            # Cooldowns are disabled (see _build_router); no additional
-            # retry is attempted here.
             raise
 
     raise ValueError(f"Failed after {retries + 1} attempts")

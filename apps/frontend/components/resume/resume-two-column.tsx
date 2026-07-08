@@ -104,7 +104,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
-      displayText = value.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      displayText = label === 'Website' ? 'Portfolio' : label;
     }
 
     return (

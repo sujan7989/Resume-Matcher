@@ -67,7 +67,7 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
-      displayText = value.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      displayText = label === 'Website' ? 'Portfolio' : label;
     }
 
     return (

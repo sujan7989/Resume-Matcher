@@ -67,7 +67,8 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
-      displayText = value.replace(/^https?:\/\//, '').replace(/^www\./, '');
+      // Show label name for professional appearance — clickable but not a raw URL
+      displayText = label === 'Website' ? 'Portfolio' : label;
     }
 
     return (

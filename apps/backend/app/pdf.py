@@ -383,6 +383,11 @@ async def render_resume_pdf(
                         logger.warning(f"Selector '{selector}' not found, proceeding with whatever is on the page")
 
                     pdf_format = "A4" if page_size == "A4" else "Letter"
+                    # Check if the page loaded correctly — error pages return empty/error content
+                    page_content = await page.content()
+                    if 'couldn' in page_content.lower() or 'error occurred' in page_content.lower() or 'reload to try' in page_content.lower():
+                        logger.warning("Print page returned error content, falling back to HTML builder")
+                        raise Exception("Print page returned error — frontend unreachable")
                     # Use zero margins since the @page CSS rule in the print page handles margins
                     # This ensures the preview (which uses CSS margins) matches the PDF exactly
                     zero_margins = {"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"}

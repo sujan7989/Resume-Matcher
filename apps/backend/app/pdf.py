@@ -108,7 +108,25 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
     github = _safe(personal.get("github") or "")
     summary = _safe(data.get("summary", ""))
 
-    contact_parts = [p for p in [email, phone, location, website, linkedin, github] if p]
+    # Build contact parts with labels for LinkedIn/GitHub/Website
+    def _contact_item(value: str, label: str = "") -> str:
+        """Return clickable label or plain text for a contact field."""
+        if not value:
+            return ""
+        if label in ("LinkedIn", "GitHub", "Portfolio"):
+            href = value if value.startswith("http") else f"https://{value}"
+            return f'<a href="{href}" style="color:inherit;text-decoration:underline;">{label}</a>'
+        return value
+
+    contact_parts_raw = [
+        email,
+        phone,
+        location,
+        _contact_item(website, "Portfolio"),
+        _contact_item(linkedin, "LinkedIn"),
+        _contact_item(github, "GitHub"),
+    ]
+    contact_parts = [p for p in contact_parts_raw if p]
     contact_line = " &nbsp;|&nbsp; ".join(contact_parts)
 
     work_exp = data.get("workExperience") or []
@@ -275,7 +293,12 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
     if two_col:
         sidebar = ""
         if contact_parts:
-            sidebar += sec("Contact", f'<div class="summary-text">' + "<br>".join(contact_parts) + '</div>')
+            sidebar += sec("Contact", f'<div class="summary-text">' + "<br>".join([
+                email, phone, location,
+                f'<a href="{(linkedin if linkedin.startswith("http") else "https://"+linkedin)}" style="color:inherit;text-decoration:underline;">LinkedIn</a>' if linkedin else "",
+                f'<a href="{(github if github.startswith("http") else "https://"+github)}" style="color:inherit;text-decoration:underline;">GitHub</a>' if github else "",
+                f'<a href="{(website if website.startswith("http") else "https://"+website)}" style="color:inherit;text-decoration:underline;">Portfolio</a>' if website else "",
+            ]) + '</div>')
         if skills:
             sidebar += sec("Skills", skills_html)
         if certs:

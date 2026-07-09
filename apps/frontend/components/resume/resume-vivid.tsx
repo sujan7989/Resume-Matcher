@@ -103,10 +103,20 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({
     }
 
     const href = finalHrefPrefix + value;
+    // isLink: prefix makes it a link, OR the value itself is already a URL
     const isLink =
       finalHrefPrefix.startsWith('http') ||
       finalHrefPrefix.startsWith('mailto:') ||
-      finalHrefPrefix.startsWith('tel:');
+      finalHrefPrefix.startsWith('tel:') ||
+      value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('mailto:') ||
+      value.startsWith('tel:');
+
+    // Use value directly as href when it already has the scheme
+    const finalHref = (value.startsWith('http') || value.startsWith('mailto:') || value.startsWith('tel:'))
+      ? value
+      : href;
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
@@ -118,7 +128,7 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({
         {showContactIcons && <span className={styles.iconCircle}>{contactIcons[label]}</span>}
         {isLink ? (
           <a
-            href={href}
+            href={finalHref}
             target="_blank"
             rel="noopener noreferrer"
             className={`${baseStyles['resume-link']} hover:underline`}

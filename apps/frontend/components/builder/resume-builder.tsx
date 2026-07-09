@@ -69,6 +69,8 @@ type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
 
 const STORAGE_KEY = 'resume_builder_draft';
 const SETTINGS_STORAGE_KEY = 'resume_builder_settings';
+// Per-resume template settings key: stores template settings keyed by resume ID
+const getResumeSettingsKey = (resumeId: string) => `resume_builder_settings_${resumeId}`;
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 
@@ -129,9 +131,17 @@ const ResumeBuilderContent = () => {
   const [, setLoadingState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [templateSettings, setTemplateSettings] =
     useState<TemplateSettings>(() => {
-      // Load saved settings synchronously on first render to avoid flash/mismatch
+      // Load saved settings synchronously on first render to avoid flash/mismatch.
+      // Use per-resume settings when a resume ID is present, so switching resumes
+      // never inherits the template selection from a previously edited resume.
       if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        // Try to read resume ID directly from the URL at init time
+        const urlParams = new URLSearchParams(window.location.search);
+        const initResumeId = urlParams.get('id');
+        const storageKey = initResumeId
+          ? getResumeSettingsKey(initResumeId)
+          : SETTINGS_STORAGE_KEY;
+        const saved = localStorage.getItem(storageKey);
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
@@ -294,10 +304,11 @@ const ResumeBuilderContent = () => {
     [resumeData, t]
   );
 
-  // Save template settings to localStorage when they change
+  // Save template settings to localStorage when they change (per-resume when ID is available)
   useEffect(() => {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(templateSettings));
-  }, [templateSettings]);
+    const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
+    localStorage.setItem(storageKey, JSON.stringify(templateSettings));
+  }, [templateSettings, resumeId]);
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {
@@ -434,9 +445,10 @@ const ResumeBuilderContent = () => {
 
   const handleSettingsChange = useCallback((newSettings: TemplateSettings) => {
     setTemplateSettings(newSettings);
-    // Save immediately to localStorage so downloads pick up the latest settings
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
-  }, []);
+    // Save immediately to localStorage so downloads pick up the latest settings (per-resume)
+    const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
+    localStorage.setItem(storageKey, JSON.stringify(newSettings));
+  }, [resumeId]);
 
   const handleSave = async () => {
     if (!resumeId) {

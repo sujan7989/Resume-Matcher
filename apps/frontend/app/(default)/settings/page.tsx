@@ -1283,7 +1283,7 @@ export default function SettingsPage() {
                   ].map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
-                      onClick={() => setTheme(value as any)}
+                      onClick={() => setTheme(value as 'light' | 'dark' | 'system')}
                       className={`px-4 py-3 text-sm flex flex-col items-center gap-2 ${SEGMENTED_BUTTON_BASE} ${
                         theme === value ? SEGMENTED_BUTTON_ACTIVE : SEGMENTED_BUTTON_INACTIVE
                       }`}

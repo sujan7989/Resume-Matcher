@@ -355,7 +355,7 @@
       "panelTitle": "模板与排版",
       "template": "模板",
       "templates": {
-                "swissSingle": {
+        "swissSingle": {
           "name": "FAANGPath ATS",
           "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },

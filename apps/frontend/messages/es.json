@@ -355,7 +355,7 @@
       "panelTitle": "Plantilla y formato",
       "template": "Plantilla",
       "templates": {
-                "swissSingle": {
+        "swissSingle": {
           "name": "FAANGPath ATS",
           "description": "Clean single-column ATS-optimized layout used by FAANG applicants"
         },

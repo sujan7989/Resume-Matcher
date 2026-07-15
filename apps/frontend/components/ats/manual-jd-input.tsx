@@ -47,9 +47,7 @@ export function ManualJDInput({ resumeId, onJobSaved }: ManualJDInputProps) {
         onChange={(e) => setText(e.target.value)}
         disabled={loading}
       />
-      {error && (
-        <p className="text-xs text-red-700 font-mono">{error}</p>
-      )}
+      {error && <p className="text-xs text-red-700 font-mono">{error}</p>}
       <Button
         size="sm"
         onClick={handleSave}

@@ -30,7 +30,11 @@ function nodeKind(v: unknown): string {
   return typeof v; // 'string' | 'number' | 'boolean'
 }
 
-function keyKinds(obj: unknown, prefix = '', out: Map<string, string> = new Map()): Map<string, string> {
+function keyKinds(
+  obj: unknown,
+  prefix = '',
+  out: Map<string, string> = new Map()
+): Map<string, string> {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return out;
   for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
     const path = prefix ? `${prefix}.${key}` : key;
@@ -62,7 +66,9 @@ describe('i18n locale parity (guards the next build break)', () => {
     expect(missing, `${name}.json is MISSING keys present in en.json`).toEqual([]);
     expect(mismatched, `${name}.json has keys whose SHAPE differs from en.json`).toEqual([]);
     if (extra.length > 0) {
-      console.warn(`locale-parity: ${name}.json has extra keys not in en.json (non-fatal): ${extra.join(', ')}`);
+      console.warn(
+        `locale-parity: ${name}.json has extra keys not in en.json (non-fatal): ${extra.join(', ')}`
+      );
     }
   });
 

@@ -60,15 +60,24 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
     }
 
     const href = finalHrefPrefix + value;
+    // isLink: either the prefix makes it a link, OR the value itself is already a URL
     const isLink =
       finalHrefPrefix.startsWith('http') ||
       finalHrefPrefix.startsWith('mailto:') ||
-      finalHrefPrefix.startsWith('tel:');
+      finalHrefPrefix.startsWith('tel:') ||
+      value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('mailto:') ||
+      value.startsWith('tel:');
+
+    // Compute the actual href correctly when value already has the scheme
+    const finalHref =
+      value.startsWith('http') || value.startsWith('mailto:') || value.startsWith('tel:')
+        ? value
+        : href;
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
-      // Show the label name as display text for professional appearance
-      // e.g. show "LinkedIn" instead of "linkedin.com/in/username"
       displayText = label === 'Website' ? 'Portfolio' : label;
     }
 
@@ -77,7 +86,7 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
         {showContactIcons && contactIcons[label]}
         {isLink ? (
           <a
-            href={href}
+            href={finalHref}
             target="_blank"
             rel="noopener noreferrer"
             className={`${baseStyles['resume-link']} hover:underline`}
@@ -376,10 +385,18 @@ const AdditionalSection: React.FC<{
 
   // Drop blank/whitespace-only entries so empty lines (e.g. from editing in the
   // builder) never render in the resume or PDF (issue #763).
-  const technicalSkills = rawTechnicalSkills.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const languages = rawLanguages.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const certificationsTraining = rawCertificationsTraining.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const awards = rawAwards.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+  const technicalSkills = rawTechnicalSkills.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const languages = rawLanguages.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const certificationsTraining = rawCertificationsTraining.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const awards = rawAwards.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
 
   const mergedLabels: AdditionalSectionLabels = {
     technicalSkills: labels?.technicalSkills ?? 'Technical Skills:',

@@ -1537,6 +1537,8 @@ async def download_resume_pdf(
     headerScale: int = Query(3, ge=1, le=5),
     headerFont: str = Query("serif", pattern="^(serif|sans-serif|mono)$"),
     bodyFont: str = Query("sans-serif", pattern="^(serif|sans-serif|mono)$"),
+    headerWeight: int = Query(700, ge=100, le=900),
+    bodyWeight: int = Query(400, ge=100, le=900),
     compactMode: bool = Query(False),
     showContactIcons: bool = Query(False),
     accentColor: str = Query("blue", pattern="^(blue|green|orange|red)$"),
@@ -1582,6 +1584,8 @@ async def download_resume_pdf(
         f"&headerScale={headerScale}"
         f"&headerFont={headerFont}"
         f"&bodyFont={bodyFont}"
+        f"&headerWeight={headerWeight}"
+        f"&bodyWeight={bodyWeight}"
         f"&compactMode={str(compactMode).lower()}"
         f"&showContactIcons={str(showContactIcons).lower()}"
         f"&accentColor={accentColor}"

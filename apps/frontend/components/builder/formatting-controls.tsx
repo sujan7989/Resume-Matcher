@@ -291,7 +291,9 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
                       : 'border-black bg-white text-ink-soft hover:bg-paper-tint'
                   }`}
                 >
-                  <div className="font-bold">{pages} {pages === 1 ? 'Page' : 'Pages'}</div>
+                  <div className="font-bold">
+                    {pages} {pages === 1 ? 'Page' : 'Pages'}
+                  </div>
                   <div className="text-[9px] opacity-70">
                     {pages === 1 ? 'Compact — ATS preferred' : 'Detailed — senior roles'}
                   </div>
@@ -430,14 +432,17 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
 
               {/* Header Font Weight (Thickness) */}
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs w-16 text-ink-soft">
-                  Hdr Weight:
-                </span>
+                <span className="font-mono text-xs w-16 text-ink-soft">Hdr Weight:</span>
                 <div className="flex gap-1">
                   {([300, 400, 500, 600, 700] as const).map((weight) => (
                     <button
                       key={weight}
-                      onClick={() => onChange({ ...settings, fontSize: { ...settings.fontSize, headerWeight: weight } })}
+                      onClick={() =>
+                        onChange({
+                          ...settings,
+                          fontSize: { ...settings.fontSize, headerWeight: weight },
+                        })
+                      }
                       className={`px-2 py-1 font-mono text-xs border transition-all ${
                         settings.fontSize.headerWeight === weight
                           ? 'bg-blue-700 text-white border-blue-700 shadow-sw-xs'
@@ -453,14 +458,17 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
 
               {/* Body Font Weight (Thickness) */}
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs w-16 text-ink-soft">
-                  Body Weight:
-                </span>
+                <span className="font-mono text-xs w-16 text-ink-soft">Body Weight:</span>
                 <div className="flex gap-1">
                   {([300, 400, 500, 600, 700] as const).map((weight) => (
                     <button
                       key={weight}
-                      onClick={() => onChange({ ...settings, fontSize: { ...settings.fontSize, bodyWeight: weight } })}
+                      onClick={() =>
+                        onChange({
+                          ...settings,
+                          fontSize: { ...settings.fontSize, bodyWeight: weight },
+                        })
+                      }
                       className={`px-2 py-1 font-mono text-xs border transition-all ${
                         settings.fontSize.bodyWeight === weight
                           ? 'bg-blue-700 text-white border-blue-700 shadow-sw-xs'
@@ -568,12 +576,8 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
                   {t('builder.formatting.effectiveBodyFont')}:{' '}
                   {getFontLabel(settings.fontSize.bodyFont)}
                 </div>
-                <div>
-                  Header Weight: {settings.fontSize.headerWeight}
-                </div>
-                <div>
-                  Body Weight: {settings.fontSize.bodyWeight}
-                </div>
+                <div>Header Weight: {settings.fontSize.headerWeight}</div>
+                <div>Body Weight: {settings.fontSize.bodyWeight}</div>
               </div>
               {settings.compactMode && (
                 <div className="font-mono text-[10px] text-steel-grey mt-2">

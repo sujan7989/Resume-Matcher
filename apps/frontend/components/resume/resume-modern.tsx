@@ -71,9 +71,10 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({
       value.startsWith('tel:');
 
     // Use value directly as href when it already has the scheme
-    const finalHref = (value.startsWith('http') || value.startsWith('mailto:') || value.startsWith('tel:'))
-      ? value
-      : href;
+    const finalHref =
+      value.startsWith('http') || value.startsWith('mailto:') || value.startsWith('tel:')
+        ? value
+        : href;
 
     let displayText = value;
     if (isLink && (label === 'LinkedIn' || label === 'GitHub' || label === 'Website')) {
@@ -386,10 +387,18 @@ const AdditionalSection: React.FC<{
 
   // Drop blank/whitespace-only entries so empty lines (e.g. from editing in the
   // builder) never render in the resume or PDF (issue #763).
-  const technicalSkills = rawTechnicalSkills.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const languages = rawLanguages.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const certificationsTraining = rawCertificationsTraining.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
-  const awards = rawAwards.filter((item): item is string => typeof item === 'string' && item.trim() !== '');
+  const technicalSkills = rawTechnicalSkills.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const languages = rawLanguages.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const certificationsTraining = rawCertificationsTraining.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
+  const awards = rawAwards.filter(
+    (item): item is string => typeof item === 'string' && item.trim() !== ''
+  );
 
   const mergedLabels: AdditionalSectionLabels = {
     technicalSkills: labels?.technicalSkills ?? 'Technical Skills:',

@@ -63,7 +63,12 @@ import { ATSScorePanel } from '@/components/ats/ats-score-panel';
 import { ManualJDInput } from '@/components/ats/manual-jd-input';
 import { JobUrlInput } from '@/components/ats/job-url-input';
 import { ProjectOptimizer } from '@/components/ats/project-optimizer';
-import { analyzeATSMatch, suggestProject, type ATSAnalysisResult, type SuggestedProject } from '@/lib/api/ats';
+import {
+  analyzeATSMatch,
+  suggestProject,
+  type ATSAnalysisResult,
+  type SuggestedProject,
+} from '@/lib/api/ats';
 
 type TabId = 'resume' | 'cover-letter' | 'outreach' | 'jd-match';
 
@@ -129,36 +134,33 @@ const ResumeBuilderContent = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [, setLoadingState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
-  const [templateSettings, setTemplateSettings] =
-    useState<TemplateSettings>(() => {
-      // Load saved settings synchronously on first render to avoid flash/mismatch.
-      // Use per-resume settings when a resume ID is present, so switching resumes
-      // never inherits the template selection from a previously edited resume.
-      if (typeof window !== 'undefined') {
-        // Try to read resume ID directly from the URL at init time
-        const urlParams = new URLSearchParams(window.location.search);
-        const initResumeId = urlParams.get('id');
-        const storageKey = initResumeId
-          ? getResumeSettingsKey(initResumeId)
-          : SETTINGS_STORAGE_KEY;
-        const saved = localStorage.getItem(storageKey);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            return {
-              ...DEFAULT_TEMPLATE_SETTINGS,
-              ...parsed,
-              margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
-              spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
-              fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
-            };
-          } catch {
-            // Fall through to default
-          }
+  const [templateSettings, setTemplateSettings] = useState<TemplateSettings>(() => {
+    // Load saved settings synchronously on first render to avoid flash/mismatch.
+    // Use per-resume settings when a resume ID is present, so switching resumes
+    // never inherits the template selection from a previously edited resume.
+    if (typeof window !== 'undefined') {
+      // Try to read resume ID directly from the URL at init time
+      const urlParams = new URLSearchParams(window.location.search);
+      const initResumeId = urlParams.get('id');
+      const storageKey = initResumeId ? getResumeSettingsKey(initResumeId) : SETTINGS_STORAGE_KEY;
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return {
+            ...DEFAULT_TEMPLATE_SETTINGS,
+            ...parsed,
+            margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
+            spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
+            fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
+          };
+        } catch {
+          // Fall through to default
         }
       }
-      return DEFAULT_TEMPLATE_SETTINGS;
-    });
+    }
+    return DEFAULT_TEMPLATE_SETTINGS;
+  });
   // Track which resume ID the current templateSettings belong to, so we can
   // reload the per-resume settings whenever the user navigates to a different resume.
   const [settingsResumeId, setSettingsResumeId] = useState<string | null>(() => {
@@ -345,7 +347,7 @@ const ResumeBuilderContent = () => {
     // No saved settings for this resume — start with the global default so
     // we don't carry over the previous resume's template choice.
     setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeId]); // intentionally omits settingsResumeId to avoid loop
 
   // Warn user before leaving with unsaved changes
@@ -481,12 +483,15 @@ const ResumeBuilderContent = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
   }, []);
 
-  const handleSettingsChange = useCallback((newSettings: TemplateSettings) => {
-    setTemplateSettings(newSettings);
-    // Save immediately to localStorage so downloads pick up the latest settings (per-resume)
-    const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
-    localStorage.setItem(storageKey, JSON.stringify(newSettings));
-  }, [resumeId]);
+  const handleSettingsChange = useCallback(
+    (newSettings: TemplateSettings) => {
+      setTemplateSettings(newSettings);
+      // Save immediately to localStorage so downloads pick up the latest settings (per-resume)
+      const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
+      localStorage.setItem(storageKey, JSON.stringify(newSettings));
+    },
+    [resumeId]
+  );
 
   const handleSave = async () => {
     if (!resumeId) {
@@ -727,7 +732,10 @@ const ResumeBuilderContent = () => {
           setLastSavedData(resumeData);
           setHasUnsavedChanges(false);
         } catch (saveErr) {
-          console.warn('Auto-save before re-analysis failed, proceeding with stored version:', saveErr);
+          console.warn(
+            'Auto-save before re-analysis failed, proceeding with stored version:',
+            saveErr
+          );
         }
       }
       const result = await analyzeATSMatch(resumeId, effectiveJobId);
@@ -745,7 +753,11 @@ const ResumeBuilderContent = () => {
       // Parse a clean user-facing message from the raw error
       const raw = err instanceof Error ? err.message : 'Analysis failed. Please try again.';
       let userMsg = raw;
-      if (raw.toLowerCase().includes('ratelimit') || raw.toLowerCase().includes('rate limit') || raw.includes('429')) {
+      if (
+        raw.toLowerCase().includes('ratelimit') ||
+        raw.toLowerCase().includes('rate limit') ||
+        raw.includes('429')
+      ) {
         userMsg = 'Rate limit reached on the AI provider. Please wait 30–60 seconds and try again.';
       } else if (raw.toLowerCase().includes('timeout') || raw.includes('504')) {
         userMsg = 'Request timed out. Try again in a moment.';
@@ -960,7 +972,6 @@ const ResumeBuilderContent = () => {
               {/* JD Match Left Panel — clean, action-focused */}
               {activeTab === 'jd-match' && (
                 <div className="space-y-4">
-
                   {/* Job URL extraction — prominent at top */}
                   <div className="border-2 border-black bg-white p-4">
                     <h3 className="font-mono text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -987,7 +998,9 @@ const ResumeBuilderContent = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setJdRightView(jdRightView === 'ats' ? 'keywords' : 'ats')}
+                              onClick={() =>
+                                setJdRightView(jdRightView === 'ats' ? 'keywords' : 'ats')
+                              }
                             >
                               {jdRightView === 'ats' ? 'View Keywords' : 'View Score'}
                             </Button>
@@ -999,8 +1012,14 @@ const ResumeBuilderContent = () => {
                               disabled={atsLoading}
                             >
                               {atsLoading ? (
-                                <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</>
-                              ) : atsResult ? 'Re-analyze' : 'Run ATS Analysis'}
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" /> Analyzing...
+                                </>
+                              ) : atsResult ? (
+                                'Re-analyze'
+                              ) : (
+                                'Run ATS Analysis'
+                              )}
                             </Button>
                           )}
                         </div>
@@ -1066,37 +1085,70 @@ const ResumeBuilderContent = () => {
                           {/* Before/After comparison when re-analyzed after changes */}
                           {showScoreComparison && atsBaselineScore !== null && (
                             <div className="border-2 border-blue-200 bg-blue-50 p-3 space-y-2">
-                              <div className="font-mono text-xs font-bold uppercase text-blue-800">Score Impact</div>
+                              <div className="font-mono text-xs font-bold uppercase text-blue-800">
+                                Score Impact
+                              </div>
                               <div className="flex items-center gap-4">
                                 <div className="text-center">
-                                  <div className="font-mono text-xs text-ink-soft uppercase">Before</div>
-                                  <div className={`font-mono text-2xl font-bold ${
-                                    atsBaselineScore >= 81 ? 'text-green-700' :
-                                    atsBaselineScore >= 61 ? 'text-blue-700' :
-                                    atsBaselineScore >= 41 ? 'text-orange-600' : 'text-red-600'
-                                  }`}>{atsBaselineScore}</div>
+                                  <div className="font-mono text-xs text-ink-soft uppercase">
+                                    Before
+                                  </div>
+                                  <div
+                                    className={`font-mono text-2xl font-bold ${
+                                      atsBaselineScore >= 81
+                                        ? 'text-green-700'
+                                        : atsBaselineScore >= 61
+                                          ? 'text-blue-700'
+                                          : atsBaselineScore >= 41
+                                            ? 'text-orange-600'
+                                            : 'text-red-600'
+                                    }`}
+                                  >
+                                    {atsBaselineScore}
+                                  </div>
                                 </div>
                                 <div className="text-xl text-ink-soft">→</div>
                                 <div className="text-center">
-                                  <div className="font-mono text-xs text-ink-soft uppercase">After</div>
-                                  <div className={`font-mono text-2xl font-bold ${
-                                    atsResult.ats_score.overall >= 81 ? 'text-green-700' :
-                                    atsResult.ats_score.overall >= 61 ? 'text-blue-700' :
-                                    atsResult.ats_score.overall >= 41 ? 'text-orange-600' : 'text-red-600'
-                                  }`}>{atsResult.ats_score.overall}</div>
+                                  <div className="font-mono text-xs text-ink-soft uppercase">
+                                    After
+                                  </div>
+                                  <div
+                                    className={`font-mono text-2xl font-bold ${
+                                      atsResult.ats_score.overall >= 81
+                                        ? 'text-green-700'
+                                        : atsResult.ats_score.overall >= 61
+                                          ? 'text-blue-700'
+                                          : atsResult.ats_score.overall >= 41
+                                            ? 'text-orange-600'
+                                            : 'text-red-600'
+                                    }`}
+                                  >
+                                    {atsResult.ats_score.overall}
+                                  </div>
                                 </div>
                                 <div className="text-center">
-                                  <div className="font-mono text-xs text-ink-soft uppercase">Change</div>
-                                  <div className={`font-mono text-2xl font-bold ${
-                                    atsResult.ats_score.overall > atsBaselineScore ? 'text-green-700' :
-                                    atsResult.ats_score.overall < atsBaselineScore ? 'text-red-600' : 'text-ink-soft'
-                                  }`}>
-                                    {atsResult.ats_score.overall > atsBaselineScore ? '+' : ''}{atsResult.ats_score.overall - atsBaselineScore}
+                                  <div className="font-mono text-xs text-ink-soft uppercase">
+                                    Change
+                                  </div>
+                                  <div
+                                    className={`font-mono text-2xl font-bold ${
+                                      atsResult.ats_score.overall > atsBaselineScore
+                                        ? 'text-green-700'
+                                        : atsResult.ats_score.overall < atsBaselineScore
+                                          ? 'text-red-600'
+                                          : 'text-ink-soft'
+                                    }`}
+                                  >
+                                    {atsResult.ats_score.overall > atsBaselineScore ? '+' : ''}
+                                    {atsResult.ats_score.overall - atsBaselineScore}
                                   </div>
                                 </div>
                               </div>
                               <button
-                                onClick={() => { setAtsBaselineScore(null); setShowScoreComparison(false); }}
+                                onClick={() => {
+                                  setAtsBaselineScore(null);
+                                  setShowScoreComparison(false);
+                                }}
                                 className="text-xs font-mono text-blue-600 hover:text-blue-800"
                               >
                                 Reset baseline
@@ -1105,26 +1157,41 @@ const ResumeBuilderContent = () => {
                           )}
                           {/* Big score */}
                           <div className="flex items-center gap-4">
-                            <div className={`text-4xl font-bold font-mono ${
-                              atsResult.ats_score.overall >= 81 ? 'text-green-700' :
-                              atsResult.ats_score.overall >= 61 ? 'text-blue-700' :
-                              atsResult.ats_score.overall >= 41 ? 'text-orange-600' : 'text-red-600'
-                            }`}>
+                            <div
+                              className={`text-4xl font-bold font-mono ${
+                                atsResult.ats_score.overall >= 81
+                                  ? 'text-green-700'
+                                  : atsResult.ats_score.overall >= 61
+                                    ? 'text-blue-700'
+                                    : atsResult.ats_score.overall >= 41
+                                      ? 'text-orange-600'
+                                      : 'text-red-600'
+                              }`}
+                            >
                               {atsResult.ats_score.overall}
                             </div>
                             <div>
-                              <div className="font-mono text-xs font-bold uppercase">ATS Match Score</div>
-                              <div className={`text-xs font-mono px-2 py-0.5 border mt-1 inline-block ${
-                                atsResult.job_fit_verdict.fit_level === 'excellent' ? 'bg-green-50 border-green-300 text-green-700' :
-                                atsResult.job_fit_verdict.fit_level === 'good' ? 'bg-blue-50 border-blue-300 text-blue-700' :
-                                atsResult.job_fit_verdict.fit_level === 'moderate' ? 'bg-orange-50 border-orange-300 text-orange-700' :
-                                'bg-red-50 border-red-300 text-red-700'
-                              }`}>
+                              <div className="font-mono text-xs font-bold uppercase">
+                                ATS Match Score
+                              </div>
+                              <div
+                                className={`text-xs font-mono px-2 py-0.5 border mt-1 inline-block ${
+                                  atsResult.job_fit_verdict.fit_level === 'excellent'
+                                    ? 'bg-green-50 border-green-300 text-green-700'
+                                    : atsResult.job_fit_verdict.fit_level === 'good'
+                                      ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                      : atsResult.job_fit_verdict.fit_level === 'moderate'
+                                        ? 'bg-orange-50 border-orange-300 text-orange-700'
+                                        : 'bg-red-50 border-red-300 text-red-700'
+                                }`}
+                              >
                                 {atsResult.job_fit_verdict.fit_level.toUpperCase()} FIT
                               </div>
                             </div>
                           </div>
-                          <p className="text-xs text-ink-soft">{atsResult.ats_score.score_explanation}</p>
+                          <p className="text-xs text-ink-soft">
+                            {atsResult.ats_score.score_explanation}
+                          </p>
                           <Button
                             className="w-full"
                             size="sm"
@@ -1165,7 +1232,9 @@ const ResumeBuilderContent = () => {
                             disabled={atsLoading}
                           >
                             {atsLoading ? (
-                              <><Loader2 className="w-3 h-3 animate-spin" /> Analyzing...</>
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" /> Analyzing...
+                              </>
                             ) : (
                               '📊 Re-analyze — See Before vs After Score'
                             )}
@@ -1182,7 +1251,10 @@ const ResumeBuilderContent = () => {
                     </summary>
                     <div className="p-4 space-y-2 text-xs text-ink-soft leading-relaxed">
                       <p>{t('builder.jdMatch.aboutDescription')}</p>
-                      <p>Keywords highlighted in <mark className="bg-yellow-200 px-1">yellow</mark> appear in both the JD and your resume.</p>
+                      <p>
+                        Keywords highlighted in <mark className="bg-yellow-200 px-1">yellow</mark>{' '}
+                        appear in both the JD and your resume.
+                      </p>
                       <ul className="list-disc list-inside space-y-1 mt-2">
                         <li>{t('builder.jdMatch.tips.items.addMissingKeywords')}</li>
                         <li>{t('builder.jdMatch.tips.items.focusTechnicalSkills')}</li>
@@ -1293,7 +1365,9 @@ const ResumeBuilderContent = () => {
                             ...resumeData.additional,
                             technicalSkills: [
                               ...(resumeData.additional?.technicalSkills || []),
-                              ...(resumeData.additional?.technicalSkills?.includes(keyword) ? [] : [keyword]),
+                              ...(resumeData.additional?.technicalSkills?.includes(keyword)
+                                ? []
+                                : [keyword]),
                             ],
                           },
                         };
@@ -1317,7 +1391,11 @@ const ResumeBuilderContent = () => {
                       <p className="font-mono text-xs text-ink-soft">
                         No analysis yet. Click <strong>Run ATS Analysis</strong> in the left panel.
                       </p>
-                      <Button variant="outline" size="sm" onClick={() => setJdRightView('keywords')}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setJdRightView('keywords')}
+                      >
                         ← View Keywords
                       </Button>
                     </div>
@@ -1327,10 +1405,10 @@ const ResumeBuilderContent = () => {
               {activeTab === 'jd-match' && jdRightView === 'keywords' && !jobDescription && (
                 <div className="flex flex-col items-center justify-center h-full gap-4 p-8 text-center">
                   <div className="border-2 border-black bg-background p-6 max-w-sm w-full">
-                    <p className="font-mono text-sm font-bold uppercase mb-2">// JD Match</p>
+                    <p className="font-mono text-sm font-bold uppercase mb-2">{'// JD Match'}</p>
                     <p className="text-xs text-ink-soft leading-relaxed">
-                      Paste a job URL or job description in the left panel to see keyword
-                      highlights and run ATS analysis.
+                      Paste a job URL or job description in the left panel to see keyword highlights
+                      and run ATS analysis.
                     </p>
                   </div>
                 </div>

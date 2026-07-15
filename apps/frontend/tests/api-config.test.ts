@@ -83,7 +83,9 @@ describe('updateFeaturePrompts error mapping', () => {
   });
 
   it('throws a generic Error with the string detail on other failures', async () => {
-    fetchMock.mockResolvedValue(new Response(JSON.stringify({ detail: 'server boom' }), { status: 500 }));
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'server boom' }), { status: 500 })
+    );
     await expect(updateFeaturePrompts({ cover_letter_prompt: 'x' })).rejects.toThrow('server boom');
   });
 

@@ -67,7 +67,14 @@ export const DEFAULT_TEMPLATE_SETTINGS: TemplateSettings = {
   pageSize: 'A4',
   margins: { top: 10, bottom: 10, left: 10, right: 10 },
   spacing: { section: 3, item: 2, lineHeight: 3 },
-  fontSize: { base: 3, headerScale: 3, headerFont: 'serif', bodyFont: 'sans-serif', headerWeight: 700, bodyWeight: 400 },
+  fontSize: {
+    base: 3,
+    headerScale: 3,
+    headerFont: 'serif',
+    bodyFont: 'sans-serif',
+    headerWeight: 700,
+    bodyWeight: 400,
+  },
   compactMode: false,
   showContactIcons: false,
   accentColor: 'blue',
@@ -243,7 +250,7 @@ export const TEMPLATE_OPTIONS: TemplateInfo[] = [
   {
     id: 'latex',
     name: 'RenderCV Classic',
-    description: 'Classic serif academic layout matching RenderCV\'s clean style',
+    description: "Classic serif academic layout matching RenderCV's clean style",
   },
   {
     id: 'clean',

@@ -14,11 +14,17 @@ import {
   Award,
   TrendingUp,
 } from 'lucide-react';
-import { type ATSAnalysisResult } from '@/lib/api/ats';
+import { type ATSAnalysisResult, type SuggestedProject } from '@/lib/api/ats';
 
 interface ATSScorePanelProps {
   result: ATSAnalysisResult;
   onAddKeyword?: (keyword: string) => void;
+  onReanalyze?: () => void;
+  onSuggestProject?: () => void;
+  isSuggestingProject?: boolean;
+  suggestedProject?: SuggestedProject | null;
+  onAddProject?: (project: SuggestedProject) => void;
+  onDismissProject?: () => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -154,13 +160,7 @@ function CircularScore({ score }: { score: number }) {
   const filled = (score / 100) * circumference;
 
   const strokeColor =
-    score >= 81
-      ? '#15803d'
-      : score >= 61
-        ? '#1d4ed8'
-        : score >= 41
-          ? '#ea580c'
-          : '#dc2626';
+    score >= 81 ? '#15803d' : score >= 61 ? '#1d4ed8' : score >= 41 ? '#ea580c' : '#dc2626';
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -177,7 +177,10 @@ function CircularScore({ score }: { score: number }) {
           strokeLinecap="round"
         />
       </svg>
-      <div className="absolute flex flex-col items-center justify-center" style={{ marginTop: '-96px' }}>
+      <div
+        className="absolute flex flex-col items-center justify-center"
+        style={{ marginTop: '-96px' }}
+      >
         <span className={`font-mono text-4xl font-bold ${scoreColor(score)}`}>{score}</span>
         <span className="font-mono text-xs text-ink-soft uppercase tracking-wider">/100</span>
       </div>
@@ -187,17 +190,36 @@ function CircularScore({ score }: { score: number }) {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
-  const { ats_score, keyword_analysis, skill_gap, resume_quality, interview_questions, tailoring_recommendations, job_fit_verdict } = result;
+export function ATSScorePanel({
+  result,
+  onAddKeyword,
+  onReanalyze,
+  onSuggestProject,
+  isSuggestingProject,
+  suggestedProject,
+  onAddProject,
+  onDismissProject,
+}: ATSScorePanelProps) {
+  const {
+    ats_score,
+    keyword_analysis,
+    skill_gap,
+    resume_quality,
+    interview_questions,
+    tailoring_recommendations,
+    job_fit_verdict,
+  } = result;
 
   const [expandedSkills, setExpandedSkills] = useState<Set<number>>(new Set());
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set());
   const [addedKeywords, setAddedKeywords] = useState<Set<string>>(new Set());
+  const [showReanalyzeHint, setShowReanalyzeHint] = useState(false);
 
   const handleAddKeyword = (keyword: string) => {
     if (onAddKeyword) {
       onAddKeyword(keyword);
-      setAddedKeywords(prev => new Set(prev).add(keyword));
+      setAddedKeywords((prev) => new Set(prev).add(keyword));
+      setShowReanalyzeHint(true); // Show hint after adding keyword
     }
   };
 
@@ -217,13 +239,44 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
 
   return (
     <div className="space-y-4">
+      {/* ── Re-analyze nudge after adding keywords ──────────────────────────── */}
+      {showReanalyzeHint && addedKeywords.size > 0 && (
+        <div className="border-2 border-blue-700 bg-blue-50 p-3 flex items-center justify-between gap-3">
+          <p className="text-xs font-mono text-blue-800">
+            ✓ {addedKeywords.size} keyword{addedKeywords.size > 1 ? 's' : ''} added to skills.
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            {onReanalyze && (
+              <button
+                type="button"
+                onClick={() => {
+                  onReanalyze();
+                  setShowReanalyzeHint(false);
+                }}
+                className="text-xs font-mono font-bold bg-blue-700 text-white px-2 py-1 hover:bg-blue-800 transition-colors"
+              >
+                Re-analyze →
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowReanalyzeHint(false)}
+              className="text-blue-600 hover:text-blue-800 text-xs font-mono"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       {/* ── Job Fit Verdict ─────────────────────────────────────────────────── */}
       <div className={`border-2 p-4 ${scoreBg(ats_score.overall)}`}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Award className="w-5 h-5 shrink-0" />
-              <span className="font-mono text-sm font-bold uppercase tracking-wider">Job Fit Verdict</span>
+              <span className="font-mono text-sm font-bold uppercase tracking-wider">
+                Job Fit Verdict
+              </span>
               <span
                 className={`ml-2 inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase border rounded-sm ${fitLevelBadge(job_fit_verdict.fit_level)}`}
               >
@@ -235,7 +288,8 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
               <div className="flex gap-2 text-sm">
                 <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
                 <span className="text-ink-soft">
-                  <strong className="text-ink-primary">Strength:</strong> {job_fit_verdict.biggest_strength}
+                  <strong className="text-ink-primary">Strength:</strong>{' '}
+                  {job_fit_verdict.biggest_strength}
                 </span>
               </div>
               <div className="flex gap-2 text-sm">
@@ -248,13 +302,20 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
           </div>
 
           {/* Circular Score */}
-          <div className="relative flex items-center justify-center" style={{ width: 128, height: 128 }}>
+          <div
+            className="relative flex items-center justify-center"
+            style={{ width: 128, height: 128 }}
+          >
             <CircularScore score={ats_score.overall} />
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className={`font-mono text-4xl font-bold leading-none ${scoreColor(ats_score.overall)}`}>
+              <span
+                className={`font-mono text-4xl font-bold leading-none ${scoreColor(ats_score.overall)}`}
+              >
                 {ats_score.overall}
               </span>
-              <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">/100</span>
+              <span className="font-mono text-[10px] text-ink-soft uppercase tracking-wider">
+                /100
+              </span>
             </div>
           </div>
         </div>
@@ -265,9 +326,15 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
         <div className="space-y-3">
           <ScoreBar label="Keyword Match (35%)" score={ats_score.breakdown.keyword_match} />
           <ScoreBar label="Skills Alignment (30%)" score={ats_score.breakdown.skills_alignment} />
-          <ScoreBar label="Experience Relevance (20%)" score={ats_score.breakdown.experience_relevance} />
+          <ScoreBar
+            label="Experience Relevance (20%)"
+            score={ats_score.breakdown.experience_relevance}
+          />
           <ScoreBar label="Education Fit (10%)" score={ats_score.breakdown.education_fit} />
-          <ScoreBar label="Resume Completeness (5%)" score={ats_score.breakdown.resume_completeness} />
+          <ScoreBar
+            label="Resume Completeness (5%)"
+            score={ats_score.breakdown.resume_completeness}
+          />
         </div>
         {ats_score.score_explanation && (
           <p className="mt-4 text-sm text-ink-soft italic border-t border-gray-200 pt-3">
@@ -277,7 +344,10 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
       </Section>
 
       {/* ── Keyword Analysis ─────────────────────────────────────────────────── */}
-      <Section title={`Keywords (${keyword_analysis.matched_count}/${keyword_analysis.total_jd_keywords} matched)`} icon={<Target className="w-4 h-4" />}>
+      <Section
+        title={`Keywords (${keyword_analysis.matched_count}/${keyword_analysis.total_jd_keywords} matched)`}
+        icon={<Target className="w-4 h-4" />}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Matched */}
           <div>
@@ -329,7 +399,11 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
                           ? 'bg-green-600 text-white cursor-default'
                           : 'bg-black text-white hover:bg-blue-700'
                       }`}
-                      title={addedKeywords.has(kw.keyword) ? 'Added to skills' : `Add "${kw.keyword}" to resume skills`}
+                      title={
+                        addedKeywords.has(kw.keyword)
+                          ? 'Added to skills'
+                          : `Add "${kw.keyword}" to resume skills`
+                      }
                     >
                       {addedKeywords.has(kw.keyword) ? '✓' : '+'}
                     </button>
@@ -357,7 +431,11 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
       </Section>
 
       {/* ── Skill Gap ────────────────────────────────────────────────────────── */}
-      <Section title="Skill Gap Analysis" icon={<CircleDot className="w-4 h-4" />} defaultOpen={false}>
+      <Section
+        title="Skill Gap Analysis"
+        icon={<CircleDot className="w-4 h-4" />}
+        defaultOpen={false}
+      >
         {/* Strong Matches */}
         {skill_gap.strong_matches.length > 0 && (
           <div className="mb-4">
@@ -366,7 +444,10 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {skill_gap.strong_matches.map((s, i) => (
-                <span key={i} className="px-2 py-0.5 text-xs font-mono bg-green-100 text-green-800 border border-green-300 rounded-sm">
+                <span
+                  key={i}
+                  className="px-2 py-0.5 text-xs font-mono bg-green-100 text-green-800 border border-green-300 rounded-sm"
+                >
                   {s}
                 </span>
               ))}
@@ -378,19 +459,23 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
         {skill_gap.partial_match.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center gap-1 mb-2">
-              <span className="text-yellow-700 text-sm font-bold">🟡 Partial Matches ({skill_gap.partial_match.length})</span>
+              <span className="text-yellow-700 text-sm font-bold">
+                🟡 Partial Matches ({skill_gap.partial_match.length})
+              </span>
             </div>
             <div className="space-y-2">
               {skill_gap.partial_match.map((s, i) => (
                 <div key={i} className="border border-yellow-200 bg-yellow-50 p-3 text-sm">
                   <div className="font-semibold text-yellow-800">{s.skill}</div>
                   <div className="mt-1 text-xs text-yellow-700 grid grid-cols-2 gap-x-4">
-                    <span><strong>You have:</strong> {s.resume_has}</span>
-                    <span><strong>Needed:</strong> {s.jd_needs}</span>
+                    <span>
+                      <strong>You have:</strong> {s.resume_has}
+                    </span>
+                    <span>
+                      <strong>Needed:</strong> {s.jd_needs}
+                    </span>
                   </div>
-                  {s.gap && (
-                    <div className="mt-1 text-xs text-yellow-600 italic">{s.gap}</div>
-                  )}
+                  {s.gap && <div className="mt-1 text-xs text-yellow-600 italic">{s.gap}</div>}
                 </div>
               ))}
             </div>
@@ -401,7 +486,9 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
         {skill_gap.critical_missing.length > 0 && (
           <div>
             <div className="flex items-center gap-1 mb-2">
-              <span className="text-red-700 text-sm font-bold">🔴 Critical Missing ({skill_gap.critical_missing.length})</span>
+              <span className="text-red-700 text-sm font-bold">
+                🔴 Critical Missing ({skill_gap.critical_missing.length})
+              </span>
             </div>
             <div className="space-y-2">
               {skill_gap.critical_missing.map((s, i) => (
@@ -420,7 +507,11 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
                   </button>
                   {expandedSkills.has(i) && (
                     <div className="mt-2 space-y-1 text-xs text-red-700">
-                      {s.context && <p><strong>Why it matters:</strong> {s.context}</p>}
+                      {s.context && (
+                        <p>
+                          <strong>Why it matters:</strong> {s.context}
+                        </p>
+                      )}
                       {s.how_to_address && (
                         <p className="mt-1">
                           <strong>How to address:</strong> {s.how_to_address}
@@ -434,13 +525,19 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
           </div>
         )}
 
-        {skill_gap.critical_missing.length === 0 && skill_gap.partial_match.length === 0 && skill_gap.strong_matches.length === 0 && (
-          <p className="text-sm text-ink-soft italic">No skill gap data available.</p>
-        )}
+        {skill_gap.critical_missing.length === 0 &&
+          skill_gap.partial_match.length === 0 &&
+          skill_gap.strong_matches.length === 0 && (
+            <p className="text-sm text-ink-soft italic">No skill gap data available.</p>
+          )}
       </Section>
 
       {/* ── Resume Quality ───────────────────────────────────────────────────── */}
-      <Section title={`Resume Quality (${resume_quality.completeness_score}/100)`} icon={<CheckCircle2 className="w-4 h-4" />} defaultOpen={false}>
+      <Section
+        title={`Resume Quality (${resume_quality.completeness_score}/100)`}
+        icon={<CheckCircle2 className="w-4 h-4" />}
+        defaultOpen={false}
+      >
         {/* Completeness bar */}
         <div className="mb-4">
           <ScoreBar label="Completeness" score={resume_quality.completeness_score} />
@@ -448,10 +545,14 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
 
         {/* Bullet quality */}
         <div className="mb-4 grid grid-cols-2 gap-2 text-xs">
-          <div className={`px-3 py-2 border rounded-sm font-mono ${resume_quality.bullet_quality.has_action_verbs ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-700'}`}>
+          <div
+            className={`px-3 py-2 border rounded-sm font-mono ${resume_quality.bullet_quality.has_action_verbs ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-700'}`}
+          >
             {resume_quality.bullet_quality.has_action_verbs ? '✓' : '✗'} Action Verbs
           </div>
-          <div className={`px-3 py-2 border rounded-sm font-mono ${resume_quality.bullet_quality.has_metrics ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-700'}`}>
+          <div
+            className={`px-3 py-2 border rounded-sm font-mono ${resume_quality.bullet_quality.has_metrics ? 'bg-green-50 border-green-300 text-green-800' : 'bg-red-50 border-red-300 text-red-700'}`}
+          >
             {resume_quality.bullet_quality.has_metrics ? '✓' : '✗'} Metrics/Numbers
           </div>
           <div className="px-3 py-2 border border-gray-200 bg-gray-50 text-gray-700 font-mono rounded-sm">
@@ -467,7 +568,9 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
         {/* Strengths */}
         {resume_quality.strengths.length > 0 && (
           <div className="mb-4">
-            <div className="font-mono text-xs font-bold uppercase text-green-700 mb-2">Strengths</div>
+            <div className="font-mono text-xs font-bold uppercase text-green-700 mb-2">
+              Strengths
+            </div>
             <ul className="space-y-1">
               {resume_quality.strengths.map((s, i) => (
                 <li key={i} className="flex gap-2 text-sm text-ink-soft">
@@ -482,7 +585,9 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
         {/* Issues */}
         {resume_quality.issues.length > 0 && (
           <div>
-            <div className="font-mono text-xs font-bold uppercase text-red-700 mb-2">Issues to Fix</div>
+            <div className="font-mono text-xs font-bold uppercase text-red-700 mb-2">
+              Issues to Fix
+            </div>
             <div className="space-y-2">
               {resume_quality.issues.map((issue, i) => (
                 <div key={i} className="border border-orange-200 bg-orange-50 p-3 text-sm">
@@ -506,7 +611,11 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
       </Section>
 
       {/* ── Tailoring Recommendations ─────────────────────────────────────────── */}
-      <Section title="Tailoring Recommendations" icon={<Lightbulb className="w-4 h-4" />} defaultOpen={false}>
+      <Section
+        title="Tailoring Recommendations"
+        icon={<Lightbulb className="w-4 h-4" />}
+        defaultOpen={false}
+      >
         {tailoring_recommendations.length === 0 ? (
           <p className="text-sm text-ink-soft italic">No recommendations available.</p>
         ) : (
@@ -514,12 +623,17 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
             {[...tailoring_recommendations]
               .sort((a, b) => {
                 const order = { high: 0, medium: 1, low: 2 };
-                return (order[a.priority as keyof typeof order] ?? 2) - (order[b.priority as keyof typeof order] ?? 2);
+                return (
+                  (order[a.priority as keyof typeof order] ?? 2) -
+                  (order[b.priority as keyof typeof order] ?? 2)
+                );
               })
               .map((rec, i) => (
                 <div key={i} className="border border-gray-200 p-3 text-sm">
                   <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className={`inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase border rounded-sm ${priorityBadge(rec.priority)}`}>
+                    <span
+                      className={`inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase border rounded-sm ${priorityBadge(rec.priority)}`}
+                    >
                       {rec.priority}
                     </span>
                     <span className="font-mono text-xs text-ink-soft uppercase tracking-wide border border-gray-200 px-1.5 py-0.5 rounded-sm bg-gray-50">
@@ -539,7 +653,11 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
       </Section>
 
       {/* ── Interview Questions ──────────────────────────────────────────────── */}
-      <Section title={`Interview Questions (${interview_questions.length})`} icon={<MessageSquare className="w-4 h-4" />} defaultOpen={false}>
+      <Section
+        title={`Interview Questions (${interview_questions.length})`}
+        icon={<MessageSquare className="w-4 h-4" />}
+        defaultOpen={false}
+      >
         {interview_questions.length === 0 ? (
           <p className="text-sm text-ink-soft italic">No interview questions available.</p>
         ) : (
@@ -554,7 +672,9 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
                 >
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className={`inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase border rounded-sm ${categoryBadge(q.category)}`}>
+                      <span
+                        className={`inline-block px-2 py-0.5 text-xs font-mono font-bold uppercase border rounded-sm ${categoryBadge(q.category)}`}
+                      >
                         {q.category.replace(/_/g, ' ')}
                       </span>
                     </div>
@@ -573,14 +693,17 @@ export function ATSScorePanel({ result, onAddKeyword }: ATSScorePanelProps) {
                   <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
                     {q.why_asked && (
                       <div className="text-xs text-ink-soft">
-                        <strong className="text-ink-primary">Why they ask this:</strong> {q.why_asked}
+                        <strong className="text-ink-primary">Why they ask this:</strong>{' '}
+                        {q.why_asked}
                       </div>
                     )}
                     {q.tip && (
                       <div className="text-xs bg-blue-50 border border-blue-200 p-2 text-blue-800">
                         <div className="flex gap-1">
                           <Lightbulb className="w-3 h-3 shrink-0 mt-0.5 text-blue-600" />
-                          <span><strong>Answer tip:</strong> {q.tip}</span>
+                          <span>
+                            <strong>Answer tip:</strong> {q.tip}
+                          </span>
                         </div>
                       </div>
                     )}

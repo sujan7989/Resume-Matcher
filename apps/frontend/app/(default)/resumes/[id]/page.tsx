@@ -14,17 +14,23 @@ import {
   renameResume,
 } from '@/lib/api/resume';
 import { useStatusCache } from '@/lib/context/status-cache';
-import { ArrowLeft, Edit, Download, Loader2, AlertCircle, Sparkles, Pencil, Settings2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Download,
+  Loader2,
+  AlertCircle,
+  Sparkles,
+  Pencil,
+  Settings2,
+} from 'lucide-react';
 import { EnrichmentModal } from '@/components/enrichment/enrichment-modal';
 import { useTranslations } from '@/lib/i18n';
 import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 import { useLanguage } from '@/lib/context/language-context';
 import { downloadBlobAsFile, openUrlInNewTab, sanitizeFilename } from '@/lib/utils/download';
 import { FormattingControls } from '@/components/builder/formatting-controls';
-import {
-  type TemplateSettings,
-  DEFAULT_TEMPLATE_SETTINGS,
-} from '@/lib/types/template-settings';
+import { type TemplateSettings, DEFAULT_TEMPLATE_SETTINGS } from '@/lib/types/template-settings';
 
 type ProcessingStatus = 'pending' | 'processing' | 'ready' | 'failed';
 
@@ -327,7 +333,7 @@ export default function ResumeViewerPage() {
                 {t('resumeViewer.enhanceResume')}
               </Button>
             )}
-            <Button variant="outline" onClick={() => setShowFormattingPanel(p => !p)}>
+            <Button variant="outline" onClick={() => setShowFormattingPanel((p) => !p)}>
               <Settings2 className="w-4 h-4" />
               Template & Format
             </Button>

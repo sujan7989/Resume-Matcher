@@ -239,6 +239,8 @@ export function getResumePdfUrl(
     params.set('headerScale', String(settings.fontSize.headerScale));
     params.set('headerFont', settings.fontSize.headerFont);
     params.set('bodyFont', settings.fontSize.bodyFont);
+    params.set('headerWeight', String(settings.fontSize.headerWeight));
+    params.set('bodyWeight', String(settings.fontSize.bodyWeight));
     params.set('compactMode', String(settings.compactMode));
     params.set('showContactIcons', String(settings.showContactIcons));
     params.set('accentColor', settings.accentColor);
@@ -259,25 +261,61 @@ export async function downloadResumePdf(
   settings?: TemplateSettings,
   locale?: Locale
 ): Promise<Blob> {
-  const url = getResumePdfUrl(resumeId, settings, locale);
-  
-  // Log the full URL for debugging
-  if (typeof window !== 'undefined') {
-    console.log('[downloadResumePdf] Fetching PDF from:', url);
+  // Build the path segment only (without API_BASE) so apiFetch can compose the
+  // full URL correctly — avoids the /api/v1/api/v1 double-prefix that would
+  // occur if we passed the full getResumePdfUrl() result to apiFetch.
+  const normalizedId = normalizeResumeId(resumeId);
+  const params = new URLSearchParams();
+  if (settings) {
+    params.set('template', settings.template);
+    params.set('pageSize', settings.pageSize);
+    params.set('marginTop', String(settings.margins.top));
+    params.set('marginBottom', String(settings.margins.bottom));
+    params.set('marginLeft', String(settings.margins.left));
+    params.set('marginRight', String(settings.margins.right));
+    params.set('sectionSpacing', String(settings.spacing.section));
+    params.set('itemSpacing', String(settings.spacing.item));
+    params.set('lineHeight', String(settings.spacing.lineHeight));
+    params.set('fontSize', String(settings.fontSize.base));
+    params.set('headerScale', String(settings.fontSize.headerScale));
+    params.set('headerFont', settings.fontSize.headerFont);
+    params.set('bodyFont', settings.fontSize.bodyFont);
+    params.set('headerWeight', String(settings.fontSize.headerWeight));
+    params.set('bodyWeight', String(settings.fontSize.bodyWeight));
+    params.set('compactMode', String(settings.compactMode));
+    params.set('showContactIcons', String(settings.showContactIcons));
+    params.set('accentColor', settings.accentColor);
+    params.set('maxPages', String(settings.maxPages ?? 1));
+  } else {
+    params.set('template', 'swiss-single');
+    params.set('pageSize', 'A4');
   }
-  
-  // Use fetch directly since getResumePdfUrl already includes /api/v1 prefix
-  // (apiFetch would double-prefix it)
-  const res = await fetch(url);
+  if (locale) {
+    params.set('lang', locale);
+  }
+
+  const path = `/resumes/${encodeURIComponent(normalizedId)}/pdf?${params.toString()}`;
+
+  // PDF generation can take 30–60 s when Playwright renders the page, so use
+  // a generous 120 s timeout that is independent of the LLM request timeout.
+  const PDF_TIMEOUT_MS = 120_000;
+  const res = await apiFetch(path, undefined, PDF_TIMEOUT_MS);
+
   if (!res.ok) {
     const text = await res.text().catch(() => '');
-    const errorMsg = `Failed to download resume (status ${res.status}): ${text}`;
-    if (typeof window !== 'undefined') {
-      console.error('[downloadResumePdf] Error:', errorMsg);
-      console.error('[downloadResumePdf] Response URL:', res.url);
-    }
-    throw new Error(errorMsg);
+    throw new Error(`Failed to download resume (status ${res.status}): ${text}`);
   }
+
+  // Guard against the proxy returning an HTML error page with a 200 status.
+  const contentType = res.headers.get('content-type') ?? '';
+  if (!contentType.includes('application/pdf')) {
+    const body = await res.text().catch(() => '');
+    throw new Error(
+      `Expected a PDF but received content-type "${contentType}". ` +
+        `Body preview: ${body.slice(0, 200)}`
+    );
+  }
+
   return await res.blob();
 }
 

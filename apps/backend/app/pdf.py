@@ -382,6 +382,7 @@ async def render_resume_pdf(
     }
 
     # Try Playwright with the frontend print page URL first
+    # Only use Playwright if explicitly available AND frontend is reachable
     if await _is_playwright_available():
         try:
             await init_pdf_renderer()
@@ -394,7 +395,6 @@ async def render_resume_pdf(
                     # Wait for fonts to load (Google Fonts + system fonts)
                     try:
                         await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=10_000)
-                        # Additional delay to ensure fonts are fully rendered
                         await page.wait_for_timeout(500)
                     except Exception as e:
                         logger.warning(f"Font wait failed: {e}")
@@ -405,14 +405,18 @@ async def render_resume_pdf(
                     except Exception:
                         logger.warning(f"Selector '{selector}' not found, proceeding with whatever is on the page")
 
-                    pdf_format = "A4" if page_size == "A4" else "Letter"
-                    # Check if the page loaded correctly — error pages return empty/error content
+                    # Check if page loaded correctly — error pages return empty/error content
                     page_content = await page.content()
-                    if 'couldn' in page_content.lower() or 'error occurred' in page_content.lower() or 'reload to try' in page_content.lower():
+                    if any(x in page_content.lower() for x in ["couldn't load", "couldn&#x2019;t load", "server error occurred", "reload to try", "page couldn"]):
                         logger.warning("Print page returned error content, falling back to HTML builder")
                         raise Exception("Print page returned error — frontend unreachable")
-                    # Use zero margins since the @page CSS rule in the print page handles margins
-                    # This ensures the preview (which uses CSS margins) matches the PDF exactly
+
+                    # Check page has actual resume content (not blank)
+                    if len(page_content) < 2000:
+                        logger.warning("Print page content too short (%d chars), falling back", len(page_content))
+                        raise Exception("Print page content too short — likely error page")
+
+                    pdf_format = "A4" if page_size == "A4" else "Letter"
                     zero_margins = {"top": "0mm", "right": "0mm", "bottom": "0mm", "left": "0mm"}
                     pdf_bytes = await page.pdf(
                         format=pdf_format,
@@ -521,7 +525,18 @@ def _generate_pdf_fpdf2(data: dict, page_size: str = "A4", margins: Optional[dic
         pdf.set_text_color(80, 80, 80)
         pdf.cell(0, 5, s(personal["title"]), ln=True, align="C")
 
-    parts = [s(personal.get(k) or "") for k in ["email","phone","location","website","linkedin","github"] if personal.get(k)]
+    # Build contact line: plain fields first, then labelled links (Portfolio / LinkedIn / GitHub)
+    _label_map = {"website": "Portfolio", "linkedin": "LinkedIn", "github": "GitHub"}
+    _link_keys = {"website", "linkedin", "github"}
+    parts = []
+    for k in ["email", "phone", "location", "website", "linkedin", "github"]:
+        v = personal.get(k) or ""
+        if not v:
+            continue
+        if k in _link_keys:
+            parts.append(_label_map[k])   # show the label, not the raw URL
+        else:
+            parts.append(s(v))
     if parts:
         pdf.set_font("Arial", "", 8)
         pdf.set_text_color(90, 90, 90)

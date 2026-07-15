@@ -159,6 +159,14 @@ const ResumeBuilderContent = () => {
       }
       return DEFAULT_TEMPLATE_SETTINGS;
     });
+  // Track which resume ID the current templateSettings belong to, so we can
+  // reload the per-resume settings whenever the user navigates to a different resume.
+  const [settingsResumeId, setSettingsResumeId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('id');
+    }
+    return null;
+  });
   const { improvedData } = useResumePreview();
   const improvedPreview = improvedData?.data?.resume_preview;
   const improvedCoverLetter = improvedData?.data?.cover_letter;
@@ -309,6 +317,36 @@ const ResumeBuilderContent = () => {
     const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
     localStorage.setItem(storageKey, JSON.stringify(templateSettings));
   }, [templateSettings, resumeId]);
+
+  // When the user navigates to a different resume (resumeId changes), reload the
+  // per-resume template settings for that resume so the saved template is preserved.
+  // The useState initializer only runs once on mount, so without this effect, switching
+  // resumes would keep the previous resume's in-memory settings.
+  useEffect(() => {
+    if (resumeId === settingsResumeId) return; // same resume, nothing to do
+    setSettingsResumeId(resumeId);
+    const storageKey = resumeId ? getResumeSettingsKey(resumeId) : SETTINGS_STORAGE_KEY;
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setTemplateSettings({
+          ...DEFAULT_TEMPLATE_SETTINGS,
+          ...parsed,
+          margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
+          spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
+          fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
+        });
+        return;
+      } catch {
+        // Fall through to default
+      }
+    }
+    // No saved settings for this resume — start with the global default so
+    // we don't carry over the previous resume's template choice.
+    setTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeId]); // intentionally omits settingsResumeId to avoid loop
 
   // Warn user before leaving with unsaved changes
   useEffect(() => {

@@ -18,6 +18,8 @@ import { type ATSAnalysisResult, type SuggestedProject } from '@/lib/api/ats';
 
 interface ATSScorePanelProps {
   result: ATSAnalysisResult;
+  /** Previous analysis result for Before→After comparison. Pass after re-analysis. */
+  baselineResult?: ATSAnalysisResult | null;
   onAddKeyword?: (keyword: string) => void;
   onReanalyze?: () => void;
   onSuggestProject?: () => void;
@@ -192,6 +194,7 @@ function CircularScore({ score }: { score: number }) {
 
 export function ATSScorePanel({
   result,
+  baselineResult,
   onAddKeyword,
   onReanalyze,
   onSuggestProject,
@@ -239,6 +242,106 @@ export function ATSScorePanel({
 
   return (
     <div className="space-y-4">
+      {/* ── Before → After Score Comparison ────────────────────────────────── */}
+      {baselineResult && (
+        <div className="border-2 border-black bg-white">
+          <div className="px-4 py-2 bg-background border-b border-black flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-green-600" />
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">
+              Optimization Impact
+            </span>
+            {/* Overall delta badge */}
+            {(() => {
+              const delta = result.ats_score.overall - baselineResult.ats_score.overall;
+              return (
+                <span
+                  className={`ml-auto font-mono text-sm font-bold px-2 py-0.5 border ${
+                    delta > 0
+                      ? 'bg-green-50 border-green-400 text-green-700'
+                      : delta < 0
+                        ? 'bg-red-50 border-red-400 text-red-700'
+                        : 'bg-gray-50 border-gray-300 text-gray-600'
+                  }`}
+                >
+                  {delta > 0 ? '+' : ''}
+                  {delta} ATS
+                </span>
+              );
+            })()}
+          </div>
+          <div className="p-3">
+            <table className="w-full text-xs font-mono border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left font-bold text-ink-soft pb-1.5 w-40">Metric</th>
+                  <th className="text-center font-bold text-ink-soft pb-1.5 w-14">Before</th>
+                  <th className="text-center font-bold text-ink-soft pb-1.5 w-6"></th>
+                  <th className="text-center font-bold text-ink-soft pb-1.5 w-14">After</th>
+                  <th className="text-center font-bold text-ink-soft pb-1.5 w-14">Δ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(
+                  [
+                    ['ATS Score', baselineResult.ats_score.overall, result.ats_score.overall],
+                    [
+                      'Keyword Match',
+                      baselineResult.ats_score.breakdown.keyword_match,
+                      result.ats_score.breakdown.keyword_match,
+                    ],
+                    [
+                      'Skills Match',
+                      baselineResult.ats_score.breakdown.skills_alignment,
+                      result.ats_score.breakdown.skills_alignment,
+                    ],
+                    [
+                      'Experience',
+                      baselineResult.ats_score.breakdown.experience_relevance,
+                      result.ats_score.breakdown.experience_relevance,
+                    ],
+                    [
+                      'Education',
+                      baselineResult.ats_score.breakdown.education_fit,
+                      result.ats_score.breakdown.education_fit,
+                    ],
+                    [
+                      'Resume Quality',
+                      baselineResult.ats_score.breakdown.resume_completeness,
+                      result.ats_score.breakdown.resume_completeness,
+                    ],
+                  ] as [string, number, number][]
+                ).map(([label, before, after]) => {
+                  const delta = after - before;
+                  const isTotal = label === 'ATS Score';
+                  return (
+                    <tr key={label} className={isTotal ? 'border-t border-black font-bold' : ''}>
+                      <td className={`py-1 ${isTotal ? 'text-ink-primary' : 'text-ink-soft'}`}>
+                        {label}
+                      </td>
+                      <td className={`text-center py-1 ${scoreColor(before)}`}>{before}</td>
+                      <td className="text-center py-1 text-ink-soft text-[10px]">→</td>
+                      <td className={`text-center py-1 font-bold ${scoreColor(after)}`}>{after}</td>
+                      <td
+                        className={`text-center py-1 font-bold ${
+                          delta > 0
+                            ? 'text-green-700'
+                            : delta < 0
+                              ? 'text-red-600'
+                              : 'text-ink-soft'
+                        }`}
+                      >
+                        {delta > 0 ? '+' : ''}
+                        {delta !== 0 ? delta : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* ── Re-analyze nudge after adding keywords ──────────────────────────── */}
       {showReanalyzeHint && addedKeywords.size > 0 && (
         <div className="border-2 border-blue-700 bg-blue-50 p-3 flex items-center justify-between gap-3">

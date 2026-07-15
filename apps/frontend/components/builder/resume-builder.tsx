@@ -219,6 +219,7 @@ const ResumeBuilderContent = () => {
   const [atsCacheKey, setAtsCacheKey] = useState<string | null>(null);
   // Before/After score tracking
   const [atsBaselineScore, setAtsBaselineScore] = useState<number | null>(null); // score before changes
+  const [atsBaselineResult, setAtsBaselineResult] = useState<ATSAnalysisResult | null>(null); // full result before changes
   const [showScoreComparison, setShowScoreComparison] = useState(false);
   // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
   const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
@@ -744,6 +745,7 @@ const ResumeBuilderContent = () => {
       // Store baseline score on first analysis; on re-analyze show comparison
       if (atsBaselineScore === null) {
         setAtsBaselineScore(result.ats_score.overall);
+        setAtsBaselineResult(result);
         setShowScoreComparison(false);
       } else {
         setShowScoreComparison(true);
@@ -1356,6 +1358,7 @@ const ResumeBuilderContent = () => {
                   {atsResult && !atsLoading && (
                     <ATSScorePanel
                       result={atsResult}
+                      baselineResult={showScoreComparison ? atsBaselineResult : null}
                       onReanalyze={() => handleAnalyzeATS(true)}
                       onAddKeyword={async (keyword) => {
                         // Update state with new keyword

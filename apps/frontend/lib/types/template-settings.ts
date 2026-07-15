@@ -224,6 +224,8 @@ export interface TemplateInfo {
   id: TemplateType;
   name: string;
   description: string;
+  /** Audience category for grouped display in the template picker */
+  category: 'freshers' | 'experienced';
 }
 
 export const TEMPLATE_OPTIONS: TemplateInfo[] = [
@@ -231,36 +233,43 @@ export const TEMPLATE_OPTIONS: TemplateInfo[] = [
     id: 'swiss-single',
     name: 'FAANGPath ATS',
     description: 'Clean single-column ATS-optimized layout used by FAANG applicants',
+    category: 'experienced',
   },
   {
     id: 'swiss-two-column',
     name: 'Deedy',
     description: 'Two-column layout with left sidebar — popular for CS/engineering roles',
+    category: 'experienced',
   },
   {
     id: 'modern',
     name: 'RenderCV Blue',
     description: 'Modern blue-accented layout with colorful section headers',
+    category: 'freshers',
   },
   {
     id: 'modern-two-column',
     name: 'Harvard Classic',
     description: 'Two-column layout with professional blue accents and Harvard-style formatting',
+    category: 'experienced',
   },
   {
     id: 'latex',
     name: 'RenderCV Classic',
     description: "Classic serif academic layout matching RenderCV's clean style",
+    category: 'freshers',
   },
   {
     id: 'clean',
     name: "Jake's Resume",
     description: 'Minimal single-column layout — the most popular ATS template on Overleaf',
+    category: 'freshers',
   },
   {
     id: 'vivid',
     name: 'Academic',
     description: 'Left-aligned academic CV style with structured category labels',
+    category: 'freshers',
   },
 ];
 

@@ -188,33 +188,75 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
             <h4 className="font-mono text-xs font-bold uppercase tracking-wider mb-3 text-ink-soft">
               {t('builder.formatting.template')}
             </h4>
-            <div className="flex flex-wrap gap-3">
-              {TEMPLATE_OPTIONS.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleTemplateChange(template.id)}
-                  className={`group flex flex-col items-center p-2 border transition-all ${
-                    settings.template === template.id
-                      ? 'border-blue-700 bg-white shadow-[2px_2px_0px_0px_#1D4ED8]'
-                      : 'border-black bg-white hover:bg-paper-tint hover:shadow-sw-xs'
-                  }`}
-                  title={templateLabels[template.id].description}
-                >
-                  <div className="w-12 h-16 mb-1.5 flex items-center justify-center">
-                    <TemplateThumbnail
-                      type={template.id}
-                      isActive={settings.template === template.id}
-                    />
-                  </div>
-                  <span
-                    className={`font-mono text-[9px] uppercase tracking-wider font-bold ${
-                      settings.template === template.id ? 'text-blue-700' : 'text-ink-soft'
+            {/* Freshers group */}
+            <div className="mb-3">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ink-soft mb-1.5 border-b border-steel-grey pb-0.5">
+                Freshers / Students
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {TEMPLATE_OPTIONS.filter((tpl) => tpl.category === 'freshers').map((template) => (
+                  <button
+                    key={template.id}
+                    onClick={() => handleTemplateChange(template.id)}
+                    className={`group flex flex-col items-center p-2 border transition-all ${
+                      settings.template === template.id
+                        ? 'border-blue-700 bg-white shadow-[2px_2px_0px_0px_#1D4ED8]'
+                        : 'border-black bg-white hover:bg-paper-tint hover:shadow-sw-xs'
                     }`}
+                    title={templateLabels[template.id].description}
                   >
-                    {templateLabels[template.id].name}
-                  </span>
-                </button>
-              ))}
+                    <div className="w-12 h-16 mb-1.5 flex items-center justify-center">
+                      <TemplateThumbnail
+                        type={template.id}
+                        isActive={settings.template === template.id}
+                      />
+                    </div>
+                    <span
+                      className={`font-mono text-[9px] uppercase tracking-wider font-bold ${
+                        settings.template === template.id ? 'text-blue-700' : 'text-ink-soft'
+                      }`}
+                    >
+                      {templateLabels[template.id].name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Experienced group */}
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ink-soft mb-1.5 border-b border-steel-grey pb-0.5">
+                Experienced Professionals
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {TEMPLATE_OPTIONS.filter((tpl) => tpl.category === 'experienced').map(
+                  (template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => handleTemplateChange(template.id)}
+                      className={`group flex flex-col items-center p-2 border transition-all ${
+                        settings.template === template.id
+                          ? 'border-blue-700 bg-white shadow-[2px_2px_0px_0px_#1D4ED8]'
+                          : 'border-black bg-white hover:bg-paper-tint hover:shadow-sw-xs'
+                      }`}
+                      title={templateLabels[template.id].description}
+                    >
+                      <div className="w-12 h-16 mb-1.5 flex items-center justify-center">
+                        <TemplateThumbnail
+                          type={template.id}
+                          isActive={settings.template === template.id}
+                        />
+                      </div>
+                      <span
+                        className={`font-mono text-[9px] uppercase tracking-wider font-bold ${
+                          settings.template === template.id ? 'text-blue-700' : 'text-ink-soft'
+                        }`}
+                      >
+                        {templateLabels[template.id].name}
+                      </span>
+                    </button>
+                  )
+                )}
+              </div>
             </div>
           </div>
 

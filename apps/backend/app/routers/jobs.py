@@ -97,27 +97,177 @@ class ExtractFromUrlResponse(BaseModel):
     char_count: int
 
 
+def _extract_meta_tags(html: str) -> str:
+    """Extract job-relevant content from meta tags (Open Graph, Twitter, standard)."""
+    import re as _re
+    parts: list[str] = []
+
+    # og:title, og:description, twitter:title, twitter:description
+    og_patterns = [
+        r'<meta[^>]+property=["\']og:title["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:title["\']',
+        r'<meta[^>]+property=["\']og:description["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:description["\']',
+        r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']',
+        r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']description["\']',
+        r'<title[^>]*>([^<]+)</title>',
+    ]
+    for pattern in og_patterns:
+        m = _re.search(pattern, html, _re.IGNORECASE)
+        if m:
+            val = m.group(1).strip()
+            if val and len(val) > 10 and val not in parts:
+                parts.append(val)
+
+    return "\n\n".join(parts) if parts else ""
+
+
+def _extract_json_ld(html: str) -> str:
+    """Extract job description from any JSON-LD schema on the page (JobPosting type)."""
+    import json as _json
+    import re as _re
+
+    json_ld_matches = _re.findall(
+        r'<script[^>]*type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html, _re.DOTALL | _re.IGNORECASE
+    )
+    for match in json_ld_matches:
+        try:
+            data = _json.loads(match.strip())
+            # Handle arrays of schemas
+            items = data if isinstance(data, list) else [data]
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                # JobPosting schema or any schema with a description
+                desc_raw = item.get("description", "")
+                if not desc_raw:
+                    continue
+                desc = _re.sub(r'<[^>]+>', ' ', str(desc_raw))
+                desc = _re.sub(r'\s+', ' ', desc).strip()
+                if len(desc) < 50:
+                    continue
+                title = str(item.get("title", "") or item.get("name", "")).strip()
+                company = ""
+                org = item.get("hiringOrganization") or item.get("publisher") or {}
+                if isinstance(org, dict):
+                    company = str(org.get("name", "")).strip()
+                parts = [p for p in [title, company, desc] if p]
+                return "\n\n".join(parts)
+        except Exception:
+            continue
+    return ""
+
+
+def _extract_platform_specific(html: str, url_lower: str) -> str:
+    """Platform-specific HTML extraction for known job portals."""
+    import re as _re
+
+    # LinkedIn — JSON-LD is handled by _extract_json_ld; also try the react-rendered div
+    if "linkedin.com" in url_lower:
+        for selector in [
+            r'class="[^"]*description[^"]*"[^>]*>(.*?)</div>',
+            r'id="job-details"[^>]*>(.*?)</section>',
+        ]:
+            m = _re.search(selector, html, _re.DOTALL | _re.IGNORECASE)
+            if m:
+                text = _TAG_STRIP_RE.sub(" ", m.group(1))
+                text = _WHITESPACE_RE.sub(" ", text).strip()
+                if len(text) > 100:
+                    return text
+
+    # Indeed
+    if "indeed.com" in url_lower:
+        for selector in [
+            r'id="jobDescriptionText"[^>]*>(.*?)</div>',
+            r'class="[^"]*jobsearch-jobDescriptionText[^"]*"[^>]*>(.*?)</div>',
+        ]:
+            m = _re.search(selector, html, _re.DOTALL | _re.IGNORECASE)
+            if m:
+                text = _TAG_STRIP_RE.sub(" ", m.group(1))
+                text = _WHITESPACE_RE.sub(" ", text).strip()
+                if len(text) > 100:
+                    return text
+
+    # Glassdoor
+    if "glassdoor.com" in url_lower:
+        for selector in [
+            r'class="[^"]*JobDetails_jobDescription[^"]*"[^>]*>(.*?)</div>',
+            r'class="[^"]*desc[^"]*"[^>]*data-test="job-description"[^>]*>(.*?)</div>',
+            r'data-test="job-description"[^>]*>(.*?)</div>',
+        ]:
+            m = _re.search(selector, html, _re.DOTALL | _re.IGNORECASE)
+            if m:
+                text = _TAG_STRIP_RE.sub(" ", m.group(1))
+                text = _WHITESPACE_RE.sub(" ", text).strip()
+                if len(text) > 100:
+                    return text
+
+    # Naukri
+    if "naukri.com" in url_lower:
+        for selector in [
+            r'class="[^"]*job-desc[^"]*"[^>]*>(.*?)</div>',
+            r'class="[^"]*jd-desc[^"]*"[^>]*>(.*?)</section>',
+        ]:
+            m = _re.search(selector, html, _re.DOTALL | _re.IGNORECASE)
+            if m:
+                text = _TAG_STRIP_RE.sub(" ", m.group(1))
+                text = _WHITESPACE_RE.sub(" ", text).strip()
+                if len(text) > 100:
+                    return text
+
+    # Internshala
+    if "internshala.com" in url_lower:
+        m = _re.search(r'class="[^"]*internship_other_details_container[^"]*"[^>]*>(.*?)</div>', html, _re.DOTALL)
+        if m:
+            text = _TAG_STRIP_RE.sub(" ", m.group(1))
+            text = _WHITESPACE_RE.sub(" ", text).strip()
+            if len(text) > 100:
+                return text
+
+    # Lever.co / Greenhouse.io / Workday / Workable — semantic job description containers
+    for selector in [
+        r'class="[^"]*job-description[^"]*"[^>]*>(.*?)</div>',
+        r'class="[^"]*posting-description[^"]*"[^>]*>(.*?)</div>',
+        r'id="job_description"[^>]*>(.*?)</div>',
+        r'id="posting-description[^"]*"[^>]*>(.*?)</div>',
+        r'data-qa="job-description"[^>]*>(.*?)</div>',
+        r'itemprop="description"[^>]*>(.*?)</div>',
+    ]:
+        m = _re.search(selector, html, _re.DOTALL | _re.IGNORECASE)
+        if m:
+            text = _TAG_STRIP_RE.sub(" ", m.group(1))
+            text = _WHITESPACE_RE.sub(" ", text).strip()
+            if len(text) > 100:
+                return text
+
+    return ""
+
+
 @router.post("/extract-from-url", response_model=ExtractFromUrlResponse)
 async def extract_job_from_url(request: ExtractFromUrlRequest) -> ExtractFromUrlResponse:
     """Fetch a job posting URL and extract the job description text.
 
-    Supports LinkedIn, Indeed, Glassdoor, Naukri, Internshala, and any public URL.
-    Uses multiple User-Agent headers and fallback strategies to handle paywalls.
+    Supports LinkedIn, Indeed, Glassdoor, Naukri, Internshala, Lever, Greenhouse,
+    and any public URL. Uses multiple extraction strategies in priority order.
     """
     url = request.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="URL must start with http:// or https://")
 
+    url_lower = url.lower()
+
     # Platform-specific User-Agent strategies
     user_agents = [
-        # Googlebot — most sites allow this
+        # Real browser UA — best default for most job portals
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        # Googlebot — some sites serve cleaner HTML to bots
         "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-        # Real browser UA — fallback
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        # Mobile UA — some sites return simpler HTML
+        # Mobile UA — some sites return simpler HTML for mobile
         "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
     ]
 
+    html = ""
     last_error = None
     for ua in user_agents:
         try:
@@ -130,68 +280,78 @@ async def extract_job_from_url(request: ExtractFromUrlRequest) -> ExtractFromUrl
                     "Accept-Language": "en-US,en;q=0.9",
                     "Accept-Encoding": "gzip, deflate",
                     "Cache-Control": "no-cache",
+                    "Referer": "https://www.google.com/",
                 },
             ) as client:
                 response = await client.get(url)
                 if response.status_code == 200:
+                    html = response.text
                     break
                 last_error = f"HTTP {response.status_code}"
         except httpx.TimeoutException:
-            last_error = "timeout"
+            last_error = "Request timed out"
             continue
         except httpx.RequestError as e:
             last_error = str(e)
             continue
-    else:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Could not fetch the job URL after multiple attempts. Last error: {last_error}. "
-                   "Try copying and pasting the job description directly instead."
-        )
 
-    content_type = response.headers.get("content-type", "")
-    html = response.text
+    if not html:
+        # If Playwright is available, try JS rendering as last resort
+        try:
+            from app.pdf import _is_playwright_available, init_pdf_renderer, _browser_instance
+            if await _is_playwright_available():
+                await init_pdf_renderer()
+                if _browser_instance:
+                    page = await _browser_instance.new_page()
+                    try:
+                        await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                        await page.wait_for_timeout(2000)
+                        html = await page.content()
+                    finally:
+                        await page.close()
+        except Exception as pw_err:
+            logger.warning("Playwright JS rendering also failed: %s", pw_err)
 
-    # LinkedIn returns JSON-LD with job data — extract it
-    if "linkedin.com" in url.lower():
-        import json as _json
-        import re as _re
-        # Try to find job description in JSON-LD
-        json_ld_matches = _re.findall(r'<script[^>]*type="application/ld\+json"[^>]*>(.*?)</script>', html, _re.DOTALL)
-        for match in json_ld_matches:
-            try:
-                data = _json.loads(match)
-                if isinstance(data, dict) and data.get("description"):
-                    desc = _re.sub(r'<[^>]+>', ' ', data["description"])
-                    desc = re.sub(r'\s+', ' ', desc).strip()
-                    title = data.get("title", "")
-                    company = ""
-                    if isinstance(data.get("hiringOrganization"), dict):
-                        company = data["hiringOrganization"].get("name", "")
-                    combined = f"{title}\n{company}\n\n{desc}" if title else desc
-                    return ExtractFromUrlResponse(url=url, text=combined[:_MAX_JOB_TEXT_CHARS], char_count=min(len(combined), _MAX_JOB_TEXT_CHARS))
-            except Exception:
-                continue
-
-    # Indeed — try to find job description div
-    if "indeed.com" in url.lower():
-        import re as _re
-        match = _re.search(r'id="jobDescriptionText"[^>]*>(.*?)</div', html, _re.DOTALL)
-        if match:
-            text = _TAG_STRIP_RE.sub(" ", match.group(1))
-            text = _WHITESPACE_RE.sub(" ", text).strip()
-            if len(text) > 100:
-                return ExtractFromUrlResponse(url=url, text=text[:_MAX_JOB_TEXT_CHARS], char_count=min(len(text), _MAX_JOB_TEXT_CHARS))
-
-    # Generic HTML extraction
-    text = _extract_text_from_html(html)
-    if len(text) < 100:
+    if not html:
         raise HTTPException(
             status_code=422,
-            detail="Could not extract job description from this URL. "
-                   "The page may require login or use JavaScript rendering. "
-                   "Please copy and paste the job description directly."
+            detail=(
+                "This website blocks automatic extraction. "
+                "Please copy and paste the Job Description manually."
+            ),
         )
 
-    truncated = text[:_MAX_JOB_TEXT_CHARS]
-    return ExtractFromUrlResponse(url=url, text=truncated, char_count=len(truncated))
+    # ── Extraction pipeline (priority order) ─────────────────────────────────
+
+    # Strategy 1: JSON-LD structured data (most reliable, works on LinkedIn, Glassdoor, etc.)
+    result = _extract_json_ld(html)
+    if result and len(result) >= 100:
+        truncated = result[:_MAX_JOB_TEXT_CHARS]
+        return ExtractFromUrlResponse(url=url, text=truncated, char_count=len(truncated))
+
+    # Strategy 2: Platform-specific HTML selectors
+    result = _extract_platform_specific(html, url_lower)
+    if result and len(result) >= 100:
+        truncated = result[:_MAX_JOB_TEXT_CHARS]
+        return ExtractFromUrlResponse(url=url, text=truncated, char_count=len(truncated))
+
+    # Strategy 3: Generic HTML extraction (strip all tags)
+    result = _extract_text_from_html(html)
+    if result and len(result) >= 150:
+        truncated = result[:_MAX_JOB_TEXT_CHARS]
+        return ExtractFromUrlResponse(url=url, text=truncated, char_count=len(truncated))
+
+    # Strategy 4: Meta tags (last resort — often just the job title + teaser)
+    result = _extract_meta_tags(html)
+    if result and len(result) >= 50:
+        truncated = result[:_MAX_JOB_TEXT_CHARS]
+        return ExtractFromUrlResponse(url=url, text=truncated, char_count=len(truncated))
+
+    # All strategies failed
+    raise HTTPException(
+        status_code=422,
+        detail=(
+            "This website blocks automatic extraction. "
+            "Please copy and paste the Job Description manually."
+        ),
+    )

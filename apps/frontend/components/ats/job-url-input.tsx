@@ -34,10 +34,17 @@ export function JobUrlInput({ onExtracted }: JobUrlInputProps) {
       setSuccess(true);
       setUrl('');
     } catch (err) {
+      // Show the friendly message from the backend when it returns 422 (blocked site),
+      // or a generic fallback. Never show raw status codes or stack traces.
+      const raw = err instanceof Error ? err.message : '';
+      const isBlocked =
+        raw.includes('blocks automatic extraction') ||
+        raw.includes('copy and paste') ||
+        raw.includes('422');
       setError(
-        err instanceof Error
-          ? err.message
-          : 'Could not extract job description. Try copying and pasting the text directly.'
+        isBlocked
+          ? 'This website blocks automatic extraction. Please copy and paste the Job Description manually.'
+          : 'Could not fetch the job description. Please copy and paste the text directly.'
       );
     } finally {
       setLoading(false);

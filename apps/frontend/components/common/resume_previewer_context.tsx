@@ -54,6 +54,15 @@ export interface ResumeDiffSummary {
   high_risk_changes: number;
 }
 
+export interface RefinementStats {
+  passes_completed: number;
+  keywords_injected: number;
+  ai_phrases_removed: string[];
+  alignment_violations_fixed: number;
+  initial_match_percentage: number;
+  final_match_percentage: number;
+}
+
 export interface ResumeFieldDiff {
   field_path: string;
   field_type:
@@ -100,6 +109,10 @@ export interface Data {
   outreach_message?: string;
   diff_summary?: ResumeDiffSummary;
   detailed_changes?: ResumeFieldDiff[];
+  warnings?: string[];
+  refinement_stats?: RefinementStats | null;
+  refinement_attempted?: boolean;
+  refinement_successful?: boolean;
 }
 
 export interface ImprovedResult {

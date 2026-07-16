@@ -53,6 +53,7 @@ import {
   confirmImproveResume,
 } from '@/lib/api/resume';
 import { DiffPreviewModal } from '@/components/tailor/diff-preview-modal';
+import { OptimizationSummaryModal } from './optimization-summary-modal';
 import type { ImprovedResult } from '@/components/common/resume_previewer_context';
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
@@ -238,6 +239,9 @@ const ResumeBuilderContent = () => {
   const [showOptimizeDiffModal, setShowOptimizeDiffModal] = useState(false);
   const [isConfirmingOptimize, setIsConfirmingOptimize] = useState(false);
   const [optimizeError, setOptimizeError] = useState<string | null>(null);
+  // Summary modal — shown after confirm + ATS re-analysis completes
+  const [showOptimizeSummary, setShowOptimizeSummary] = useState(false);
+  const [optimizeSummaryResult, setOptimizeSummaryResult] = useState<ImprovedResult | null>(null);
 
   // Generate tailored project state — kept for suggestProject import usage
   const [isGeneratingProject] = useState(false);
@@ -854,10 +858,14 @@ const ResumeBuilderContent = () => {
       if (reloaded.outreach_message) setOutreachMessage(reloaded.outreach_message);
       setHasUnsavedChanges(false);
       setShowOptimizeDiffModal(false);
+      // Store the preview result (which has warnings + refinement_stats) for the summary modal
+      setOptimizeSummaryResult(optimizePreviewResult);
       setOptimizePreviewResult(null);
-      showNotification('Resume optimized and saved! Re-analyzing ATS score...', 'success');
-      // Auto re-analyze with the new resume so the Before→After comparison is shown
-      setTimeout(() => handleAnalyzeATS(true), 800);
+      // Auto re-analyze with the new resume — summary modal opens after score is known
+      setTimeout(() => {
+        handleAnalyzeATS(true);
+        setShowOptimizeSummary(true);
+      }, 600);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to save optimized resume.';
       setOptimizeError(msg);
@@ -1819,6 +1827,29 @@ const ResumeBuilderContent = () => {
           errorMessage={optimizeError ?? undefined}
         />
       )}
+
+      {/* ── Optimization Summary Modal ──────────────────────────────────────── */}
+      <OptimizationSummaryModal
+        isOpen={showOptimizeSummary}
+        onClose={() => {
+          setShowOptimizeSummary(false);
+          setOptimizeSummaryResult(null);
+        }}
+        onDownload={
+          resumeId
+            ? () => {
+                setShowOptimizeSummary(false);
+                handleDownload();
+              }
+            : undefined
+        }
+        beforeScore={atsBaselineScore}
+        afterScore={atsResult?.ats_score.overall ?? null}
+        diffSummary={optimizeSummaryResult?.data?.diff_summary}
+        detailedChanges={optimizeSummaryResult?.data?.detailed_changes}
+        warnings={optimizeSummaryResult?.data?.warnings}
+        refinementStats={optimizeSummaryResult?.data?.refinement_stats}
+      />
     </div>
   );
 };

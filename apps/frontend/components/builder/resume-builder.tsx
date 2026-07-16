@@ -49,7 +49,11 @@ import {
   generateCoverLetter,
   generateOutreachMessage,
   fetchJobDescription,
+  previewImproveResume,
+  confirmImproveResume,
 } from '@/lib/api/resume';
+import { DiffPreviewModal } from '@/components/tailor/diff-preview-modal';
+import type { ImprovedResult } from '@/components/common/resume_previewer_context';
 import { JDComparisonView } from './jd-comparison-view';
 import { RegenerateWizard } from './regenerate-wizard';
 import { useRegenerateWizard } from '@/hooks/use-regenerate-wizard';
@@ -223,6 +227,17 @@ const ResumeBuilderContent = () => {
   const [showScoreComparison, setShowScoreComparison] = useState(false);
   // JD right-panel view: 'keywords' = keyword highlight comparison, 'ats' = ATS analysis results
   const [jdRightView, setJdRightView] = useState<'keywords' | 'ats'>('keywords');
+
+  // ── Inline Optimization (Phase 2) ──────────────────────────────────────────
+  // Runs previewImproveResume → DiffPreviewModal → confirmImproveResume → reload + re-analyze
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizePromptId, setOptimizePromptId] = useState<'nudge' | 'keywords' | 'full'>(
+    'keywords'
+  );
+  const [optimizePreviewResult, setOptimizePreviewResult] = useState<ImprovedResult | null>(null);
+  const [showOptimizeDiffModal, setShowOptimizeDiffModal] = useState(false);
+  const [isConfirmingOptimize, setIsConfirmingOptimize] = useState(false);
+  const [optimizeError, setOptimizeError] = useState<string | null>(null);
 
   // Generate tailored project state — kept for suggestProject import usage
   const [isGeneratingProject] = useState(false);
@@ -777,6 +792,80 @@ const ResumeBuilderContent = () => {
 
   // Generate tailored project — now handled by ProjectOptimizer component
 
+  // ── Inline Resume Optimization (Phase 2) ────────────────────────────────────
+  // Run the full tailor pipeline inside the builder without leaving the page.
+  // Step 1: preview   → show DiffPreviewModal
+  // Step 2: confirm   → save tailored resume, reload data, re-analyze ATS
+  const handleOptimize = async () => {
+    if (!resumeId || !jobId) return;
+    setIsOptimizing(true);
+    setOptimizeError(null);
+    try {
+      // Auto-save first so the backend sees the latest resume content
+      if (hasUnsavedChanges) {
+        await updateResume(resumeId, resumeData);
+        setLastSavedData(resumeData);
+        setHasUnsavedChanges(false);
+      }
+      const result = await previewImproveResume(resumeId, jobId, optimizePromptId);
+      setOptimizePreviewResult(result);
+      setShowOptimizeDiffModal(true);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : 'Optimization failed. Please try again.';
+      let msg = raw;
+      if (raw.toLowerCase().includes('rate limit') || raw.includes('429')) {
+        msg = 'Rate limit reached. Please wait 30–60 seconds and try again.';
+      } else if (raw.toLowerCase().includes('timeout') || raw.includes('504')) {
+        msg = 'Request timed out. Try a shorter job description or a faster model.';
+      } else if (raw.length > 120) {
+        msg = 'Optimization failed. Please try again.';
+      }
+      setOptimizeError(msg);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
+
+  const handleOptimizeConfirm = async () => {
+    if (!optimizePreviewResult || !resumeId || !jobId || isConfirmingOptimize) return;
+    setIsConfirmingOptimize(true);
+    setOptimizeError(null);
+    try {
+      const resumePreview = optimizePreviewResult.data.resume_preview as unknown as ResumeData;
+      const confirmed = await confirmImproveResume({
+        resume_id: resumeId,
+        job_id: jobId,
+        improved_data: resumePreview,
+        improvements:
+          optimizePreviewResult.data.improvements?.map((imp) => ({
+            suggestion: imp.suggestion,
+            lineNumber: typeof imp.lineNumber === 'number' ? imp.lineNumber : null,
+          })) ?? [],
+      });
+      // Reload the saved tailored resume data into the builder
+      const newResumeId = confirmed?.data?.resume_id;
+      const targetId = newResumeId || resumeId;
+      const reloaded = await fetchResume(targetId);
+      if (reloaded.processed_resume) {
+        setResumeData(reloaded.processed_resume as ResumeData);
+        setLastSavedData(reloaded.processed_resume as ResumeData);
+      }
+      if (reloaded.cover_letter) setCoverLetter(reloaded.cover_letter);
+      if (reloaded.outreach_message) setOutreachMessage(reloaded.outreach_message);
+      setHasUnsavedChanges(false);
+      setShowOptimizeDiffModal(false);
+      setOptimizePreviewResult(null);
+      showNotification('Resume optimized and saved! Re-analyzing ATS score...', 'success');
+      // Auto re-analyze with the new resume so the Before→After comparison is shown
+      setTimeout(() => handleAnalyzeATS(true), 800);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to save optimized resume.';
+      setOptimizeError(msg);
+    } finally {
+      setIsConfirmingOptimize(false);
+    }
+  };
+
   return (
     <div className="h-screen w-full bg-background flex justify-center items-center p-4 md:p-8">
       {/* Main Container */}
@@ -1209,6 +1298,201 @@ const ResumeBuilderContent = () => {
                   {/* Project Optimizer — analyze existing + generate JD-aligned replacements */}
                   {resumeId && jobId && (
                     <>
+                      {/* ── Optimize Resume Action Card ─────────────────────────────── */}
+                      {atsResult && (
+                        <div className="border-2 border-black bg-white">
+                          <div className="px-4 py-3 bg-background border-b border-black flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-blue-700" />
+                            <span className="font-mono text-xs font-bold uppercase tracking-wider">
+                              Optimize Resume
+                            </span>
+                            {atsResult.ats_score.overall < 75 && (
+                              <span className="ml-auto font-mono text-[10px] bg-orange-100 text-orange-700 border border-orange-300 px-1.5 py-0.5">
+                                Score: {atsResult.ats_score.overall}/100
+                              </span>
+                            )}
+                          </div>
+                          <div className="p-3 space-y-3">
+                            {/* Action checklist derived from ATS result */}
+                            <div className="space-y-1.5">
+                              {atsResult.skill_gap.critical_missing.length > 0 && (
+                                <div className="flex items-start gap-2 text-xs">
+                                  <span className="text-red-600 font-bold mt-0.5 shrink-0">✗</span>
+                                  <span className="text-ink-soft">
+                                    <strong className="text-red-700">
+                                      {atsResult.skill_gap.critical_missing.length} critical skill
+                                      {atsResult.skill_gap.critical_missing.length !== 1
+                                        ? 's'
+                                        : ''}{' '}
+                                      missing
+                                    </strong>
+                                    :{' '}
+                                    {atsResult.skill_gap.critical_missing
+                                      .slice(0, 3)
+                                      .map((s) => s.skill)
+                                      .join(', ')}
+                                    {atsResult.skill_gap.critical_missing.length > 3 ? '…' : ''}
+                                  </span>
+                                </div>
+                              )}
+                              {atsResult.keyword_analysis.missing_keywords.filter(
+                                (k) => k.importance === 'critical' || k.importance === 'important'
+                              ).length > 0 && (
+                                <div className="flex items-start gap-2 text-xs">
+                                  <span className="text-orange-600 font-bold mt-0.5 shrink-0">
+                                    ✗
+                                  </span>
+                                  <span className="text-ink-soft">
+                                    <strong className="text-orange-700">
+                                      {
+                                        atsResult.keyword_analysis.missing_keywords.filter(
+                                          (k) =>
+                                            k.importance === 'critical' ||
+                                            k.importance === 'important'
+                                        ).length
+                                      }{' '}
+                                      key JD keywords missing
+                                    </strong>
+                                    :{' '}
+                                    {atsResult.keyword_analysis.missing_keywords
+                                      .filter(
+                                        (k) =>
+                                          k.importance === 'critical' ||
+                                          k.importance === 'important'
+                                      )
+                                      .slice(0, 3)
+                                      .map((k) => k.keyword)
+                                      .join(', ')}
+                                    {atsResult.keyword_analysis.missing_keywords.filter(
+                                      (k) =>
+                                        k.importance === 'critical' || k.importance === 'important'
+                                    ).length > 3
+                                      ? '…'
+                                      : ''}
+                                  </span>
+                                </div>
+                              )}
+                              {!atsResult.resume_quality.bullet_quality.has_metrics && (
+                                <div className="flex items-start gap-2 text-xs">
+                                  <span className="text-orange-600 font-bold mt-0.5 shrink-0">
+                                    ✗
+                                  </span>
+                                  <span className="text-ink-soft">
+                                    <strong className="text-orange-700">
+                                      Weak bullets — no measurable metrics
+                                    </strong>{' '}
+                                    detected
+                                  </span>
+                                </div>
+                              )}
+                              {atsResult.resume_quality.completeness_score < 70 && (
+                                <div className="flex items-start gap-2 text-xs">
+                                  <span className="text-orange-600 font-bold mt-0.5 shrink-0">
+                                    ✗
+                                  </span>
+                                  <span className="text-ink-soft">
+                                    <strong className="text-orange-700">Weak summary</strong> or
+                                    missing sections detected
+                                  </span>
+                                </div>
+                              )}
+                              {atsResult.tailoring_recommendations.filter(
+                                (r) => r.priority === 'high'
+                              ).length > 0 && (
+                                <div className="flex items-start gap-2 text-xs">
+                                  <span className="text-blue-600 font-bold mt-0.5 shrink-0">→</span>
+                                  <span className="text-ink-soft">
+                                    {
+                                      atsResult.tailoring_recommendations.filter(
+                                        (r) => r.priority === 'high'
+                                      ).length
+                                    }{' '}
+                                    high-priority tailoring recommendations
+                                  </span>
+                                </div>
+                              )}
+                              {atsResult.ats_score.overall >= 75 &&
+                                atsResult.skill_gap.critical_missing.length === 0 && (
+                                  <div className="flex items-start gap-2 text-xs">
+                                    <span className="text-green-600 font-bold mt-0.5 shrink-0">
+                                      ✓
+                                    </span>
+                                    <span className="text-green-700 font-medium">
+                                      Resume is well-aligned. Optimization can fine-tune keyword
+                                      emphasis.
+                                    </span>
+                                  </div>
+                                )}
+                            </div>
+
+                            {/* Prompt intensity selector */}
+                            <div className="flex items-center gap-1">
+                              <span className="font-mono text-[10px] text-ink-soft uppercase w-16 shrink-0">
+                                Intensity:
+                              </span>
+                              {(
+                                [
+                                  { id: 'nudge', label: 'Nudge', title: 'Minimal rephrase only' },
+                                  {
+                                    id: 'keywords',
+                                    label: 'Keywords',
+                                    title: 'Inject missing keywords',
+                                  },
+                                  {
+                                    id: 'full',
+                                    label: 'Full',
+                                    title: 'Complete rewrite for maximum ATS impact',
+                                  },
+                                ] as const
+                              ).map((opt) => (
+                                <button
+                                  key={opt.id}
+                                  onClick={() => setOptimizePromptId(opt.id)}
+                                  title={opt.title}
+                                  className={`flex-1 py-1 font-mono text-[10px] border transition-all ${
+                                    optimizePromptId === opt.id
+                                      ? 'bg-blue-700 text-white border-blue-700'
+                                      : 'bg-white text-ink-soft border-steel-grey hover:border-black'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {optimizeError && (
+                              <p className="font-mono text-xs text-red-600 bg-red-50 border border-red-200 p-2">
+                                {optimizeError}
+                              </p>
+                            )}
+
+                            <Button
+                              className="w-full"
+                              size="sm"
+                              onClick={handleOptimize}
+                              disabled={isOptimizing || isConfirmingOptimize}
+                            >
+                              {isOptimizing ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Optimizing… (this may take 30–60s)
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3" />
+                                  Optimize Resume for This Job
+                                </>
+                              )}
+                            </Button>
+
+                            <p className="font-mono text-[10px] text-ink-soft leading-relaxed">
+                              AI will rewrite bullets, inject keywords, and reorder sections to
+                              maximize your ATS score. You review every change before it saves.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       <ProjectOptimizer
                         resumeId={resumeId}
                         jobId={jobId}
@@ -1511,6 +1795,30 @@ const ResumeBuilderContent = () => {
         onReject={regenerateWizard.rejectAndRegenerate}
         onClose={regenerateWizard.reset}
       />
+
+      {/* ── Inline Optimization Diff Preview Modal ─────────────────────────── */}
+      {showOptimizeDiffModal && optimizePreviewResult && (
+        <DiffPreviewModal
+          isOpen={showOptimizeDiffModal}
+          isConfirming={isConfirmingOptimize}
+          onClose={() => {
+            if (!isConfirmingOptimize) {
+              setShowOptimizeDiffModal(false);
+              setOptimizePreviewResult(null);
+              setOptimizeError(null);
+            }
+          }}
+          onReject={() => {
+            setShowOptimizeDiffModal(false);
+            setOptimizePreviewResult(null);
+            setOptimizeError(null);
+          }}
+          onConfirm={handleOptimizeConfirm}
+          diffSummary={optimizePreviewResult.data.diff_summary}
+          detailedChanges={optimizePreviewResult.data.detailed_changes}
+          errorMessage={optimizeError ?? undefined}
+        />
+      )}
     </div>
   );
 };

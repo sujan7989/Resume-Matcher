@@ -424,9 +424,9 @@ def get_model_name(config: LLMConfig) -> str:
         "deepseek": "deepseek/",
         "groq": "groq/",
         "ollama": "ollama_chat/",  # ollama_chat/ routes to /api/chat (supports messages array)
-        // NVIDIA NIM: routes via openai/ prefix — NIM is OpenAI-compatible at
-        # https://integrate.api.nvidia.com/v1. The api_base is set automatically
-        # in the backend when the user selects the nvidia provider and leaves it blank.
+        # NVIDIA NIM: routes via openai/ prefix. NIM is OpenAI-compatible at
+        # https://integrate.api.nvidia.com/v1. The api_base is auto-injected
+        # in _normalize_api_base when the user leaves the base URL field blank.
         "nvidia": "openai/",
     }
 

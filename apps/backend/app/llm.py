@@ -85,11 +85,8 @@ def _normalize_api_base(provider: str, api_base: str | None) -> str | None:
 
     # OpenAI / OpenAI-compatible: preserve the URL as-is. The OpenAI client
     # resolves paths correctly whether the base includes /v1 or not.
+    # NVIDIA: also preserve as-is when a custom base URL is provided.
     if provider in ("openai", "openai_compatible", "nvidia"):
-        # NVIDIA NIM: default to the public NIM endpoint when the user leaves
-        # the base URL field blank — no need to type it every time.
-        if provider == "nvidia" and not base:
-            return "https://integrate.api.nvidia.com/v1"
         return base or None
 
     # Anthropic handler appends '/v1/messages'. If base already ends with '/v1',
@@ -417,14 +414,15 @@ def get_model_name(config: LLMConfig) -> str:
     For most providers, adds the provider prefix if not already present.
     For OpenRouter, always adds 'openrouter/' prefix since OpenRouter models
     use nested prefixes like 'openrouter/anthropic/claude-3.5-sonnet'.
-    For NVIDIA NIM, the model is passed as-is (no prefix) because the api_base
-    already points to the NIM endpoint and LiteLLM uses openai_compatible routing.
+    For NVIDIA NIM, uses the native 'nvidia_nim/' prefix so LiteLLM handles
+    auth and routing correctly without OpenAI SDK key-format validation.
     """
-    # NVIDIA NIM: pass model name as-is. LiteLLM will use the openai_compatible
-    # path when api_base is set, which avoids the OpenAI client's sk- key format
-    # validation. The nvapi-* key is accepted by any standard HTTP client.
+    # NVIDIA NIM: use LiteLLM's native nvidia_nim/ provider prefix.
+    # Format: nvidia_nim/<model-name>, e.g. nvidia_nim/z-ai/glm-5.2
+    # LiteLLM routes to https://integrate.api.nvidia.com/v1 automatically.
+    # Using nvidia_nim/ bypasses the OpenAI SDK sk- key validation entirely.
     if config.provider == "nvidia":
-        return config.model
+        return f"nvidia_nim/{config.model}"
     provider_prefixes = {
         "openai": "",  # OpenAI models don't need prefix
         # openai_compatible: route via LiteLLM's openai/ prefix so the OpenAI

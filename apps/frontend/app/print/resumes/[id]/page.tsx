@@ -149,7 +149,7 @@ function parseMargin(value: string | undefined, defaultValue: number): number {
  * Validate template type
  */
 function parseTemplate(value: string | undefined): TemplateType {
-  // Allow-list mirrors TEMPLATE_OPTIONS in lib/types/template-settings.ts ÔÇö keep in sync.
+  // Allow-list mirrors TEMPLATE_OPTIONS in lib/types/template-settings.ts — keep in sync.
   if (
     value === 'swiss-single' ||
     value === 'swiss-two-column' ||
@@ -157,7 +157,12 @@ function parseTemplate(value: string | undefined): TemplateType {
     value === 'modern-two-column' ||
     value === 'latex' ||
     value === 'clean' ||
-    value === 'vivid'
+    value === 'vivid' ||
+    value === 'nova' ||
+    value === 'crisp' ||
+    value === 'executive' ||
+    value === 'timeline' ||
+    value === 'sidebar-pro'
   ) {
     return value;
   }
@@ -285,6 +290,13 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
         />
         {/* Print-specific CSS to ensure perfect rendering */}
         <style>{`
+          /* Force font-smoothing and crisp rendering for PDF output */
+          *, *::before, *::after {
+            -webkit-font-smoothing: antialiased !important;
+            -moz-osx-font-smoothing: grayscale !important;
+            text-rendering: optimizeLegibility !important;
+            box-sizing: border-box;
+          }
           @page {
             size: ${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};
             margin: ${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm;
@@ -300,7 +312,6 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
           .resume-print {
             width: 100%;
             background: white;
-            /* Remove overflow hidden - it cuts off content and doesn't help with blank pages */
             display: block;
           }
           /* Remove all bottom padding/margin from last section to prevent whitespace */

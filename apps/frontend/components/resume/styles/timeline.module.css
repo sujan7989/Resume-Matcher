@@ -1,0 +1,105 @@
+@import './_tokens.css';
+
+/*
+  Timeline Pro Template
+  ID: timeline
+
+  Single-column layout with a subtle left timeline indicator on experience
+  and project entries. Accent colored dot + vertical line creates visual
+  hierarchy without sacrificing ATS compatibility.
+  Best for experienced engineers and senior developers.
+*/
+
+.container {
+  width: 100%;
+}
+
+.sectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--section-header-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--resume-text-primary);
+  border-left: 3px solid var(--resume-accent-primary);
+  padding-left: 0.6rem;
+  margin-bottom: var(--item-gap);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* Timeline item wrapper */
+.timelineItem {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: var(--item-gap);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.timelineItem:last-child {
+  margin-bottom: 0;
+}
+
+/* Left track: dot + vertical line */
+.timelineTrack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 12px;
+  padding-top: 0.3rem;
+}
+
+.timelineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--resume-accent-primary);
+  flex-shrink: 0;
+}
+
+.timelineLine {
+  flex: 1;
+  width: 1px;
+  background-color: var(--resume-border-secondary);
+  margin-top: 3px;
+}
+
+.timelineContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.entryTitle {
+  font-weight: 700;
+  color: var(--resume-text-primary);
+}
+
+.entryOrg {
+  font-weight: 500;
+  color: var(--resume-text-secondary);
+}
+
+.entryDate {
+  font-size: calc(var(--font-size-base) * 0.78);
+  color: var(--resume-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: var(--resume-font-mono);
+}
+
+@media print {
+  .sectionTitle {
+    border-left-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  .timelineDot {
+    background-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

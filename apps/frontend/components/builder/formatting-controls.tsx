@@ -120,7 +120,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
     onChange(DEFAULT_TEMPLATE_SETTINGS);
   };
 
-  const templateLabels = React.useMemo(
+  const templateLabels: Record<TemplateType, { name: string; description: string }> = React.useMemo(
     () => ({
       'swiss-single': {
         name: t('builder.formatting.templates.swissSingle.name'),
@@ -149,6 +149,14 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
       vivid: {
         name: t('builder.formatting.templates.vivid.name'),
         description: t('builder.formatting.templates.vivid.description'),
+      },
+      nova: { name: 'Nova Student', description: 'Clean accent stripe + skill chips' },
+      crisp: { name: 'Crisp Minimal', description: 'Ultra-clean black-and-white, ATS-first' },
+      executive: { name: 'Executive', description: 'Double-underline name, small-caps headers' },
+      timeline: { name: 'Timeline Pro', description: 'Left-border sections with timeline dots' },
+      'sidebar-pro': {
+        name: 'Sidebar Pro',
+        description: 'Dark accent sidebar + white main column',
       },
     }),
     [t]

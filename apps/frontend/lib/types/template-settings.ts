@@ -12,7 +12,13 @@ export type TemplateType =
   | 'modern-two-column'
   | 'latex'
   | 'clean'
-  | 'vivid';
+  | 'vivid'
+  // New templates
+  | 'nova'
+  | 'crisp'
+  | 'executive'
+  | 'timeline'
+  | 'sidebar-pro';
 
 export type PageSize = 'A4' | 'LETTER';
 
@@ -229,29 +235,12 @@ export interface TemplateInfo {
 }
 
 export const TEMPLATE_OPTIONS: TemplateInfo[] = [
-  {
-    id: 'swiss-single',
-    name: 'FAANGPath ATS',
-    description: 'Clean single-column ATS-optimized layout used by FAANG applicants',
-    category: 'experienced',
-  },
-  {
-    id: 'swiss-two-column',
-    name: 'Deedy',
-    description: 'Two-column layout with left sidebar — popular for CS/engineering roles',
-    category: 'experienced',
-  },
+  // ── Freshers / Students ──────────────────────────────────────────────────
   {
     id: 'modern',
     name: 'RenderCV Blue',
     description: 'Modern blue-accented layout with colorful section headers',
     category: 'freshers',
-  },
-  {
-    id: 'modern-two-column',
-    name: 'Harvard Classic',
-    description: 'Two-column layout with professional blue accents and Harvard-style formatting',
-    category: 'experienced',
   },
   {
     id: 'latex',
@@ -271,6 +260,55 @@ export const TEMPLATE_OPTIONS: TemplateInfo[] = [
     description: 'Left-aligned academic CV style with structured category labels',
     category: 'freshers',
   },
+  {
+    id: 'nova',
+    name: 'Nova Student',
+    description: 'Clean single-column with accent stripe and skill chips — ideal for graduates',
+    category: 'freshers',
+  },
+  {
+    id: 'crisp',
+    name: 'Crisp Minimal',
+    description: 'Ultra-clean black-and-white, widely-spaced headers — maximum ATS compatibility',
+    category: 'freshers',
+  },
+  // ── Experienced Professionals ────────────────────────────────────────────
+  {
+    id: 'swiss-single',
+    name: 'FAANGPath ATS',
+    description: 'Clean single-column ATS-optimized layout used by FAANG applicants',
+    category: 'experienced',
+  },
+  {
+    id: 'swiss-two-column',
+    name: 'Deedy',
+    description: 'Two-column layout with left sidebar — popular for CS/engineering roles',
+    category: 'experienced',
+  },
+  {
+    id: 'modern-two-column',
+    name: 'Harvard Classic',
+    description: 'Two-column layout with professional blue accents and Harvard-style formatting',
+    category: 'experienced',
+  },
+  {
+    id: 'executive',
+    name: 'Executive',
+    description: 'Centered double-underline name, small-caps headers — senior engineers & managers',
+    category: 'experienced',
+  },
+  {
+    id: 'timeline',
+    name: 'Timeline Pro',
+    description: 'Accent left-border sections with timeline dots on entries — experienced devs',
+    category: 'experienced',
+  },
+  {
+    id: 'sidebar-pro',
+    name: 'Sidebar Pro',
+    description: 'Dark accent sidebar with white main column — professional and visually striking',
+    category: 'experienced',
+  },
 ];
 
 /**
@@ -286,6 +324,9 @@ export const TEMPLATE_FONT_PRESETS: Partial<
 > = {
   latex: { headerFont: 'serif', bodyFont: 'serif' },
   clean: { headerFont: 'sans-serif', bodyFont: 'sans-serif' },
+  crisp: { headerFont: 'sans-serif', bodyFont: 'sans-serif' },
+  executive: { headerFont: 'serif', bodyFont: 'serif' },
+  nova: { headerFont: 'sans-serif', bodyFont: 'sans-serif' },
 };
 
 /**

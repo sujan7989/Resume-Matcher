@@ -68,6 +68,12 @@ export function PageContainer({
           height: visiblePageHeight,
           transform: `scale(${scale})`,
           marginBottom: `${visiblePageHeight * scale - visiblePageHeight + 16}px`,
+          // Prevent sub-pixel blur caused by CSS scale() on the resume content.
+          // backfaceVisibility + WebkitBackfaceVisibility promote the layer to GPU
+          // compositing so Chromium renders at device pixel resolution, not scaled
+          // screen pixels.
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
         }}
       >
         {/* Margin guides overlay */}

@@ -18,7 +18,7 @@ interface TemplateSelectorProps {
  */
 export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ value, onChange }) => {
   const { t } = useTranslations();
-  const templateLabels = {
+  const templateLabels: Record<TemplateType, { name: string; description: string }> = {
     'swiss-single': {
       name: t('builder.formatting.templates.swissSingle.name'),
       description: t('builder.formatting.templates.swissSingle.description'),
@@ -47,6 +47,14 @@ export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ value, onCha
       name: t('builder.formatting.templates.vivid.name'),
       description: t('builder.formatting.templates.vivid.description'),
     },
+    nova: {
+      name: 'Nova Student',
+      description: 'Clean single-column with accent stripe and skill chips',
+    },
+    crisp: { name: 'Crisp Minimal', description: 'Ultra-clean black-and-white, ATS-first' },
+    executive: { name: 'Executive', description: 'Double-underline name, small-caps headers' },
+    timeline: { name: 'Timeline Pro', description: 'Left-border sections with timeline dots' },
+    'sidebar-pro': { name: 'Sidebar Pro', description: 'Dark accent sidebar + white main column' },
   };
 
   return (
@@ -260,7 +268,129 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({ type, isAc
     );
   }
 
-  // Two column thumbnail (swiss-two-column)
+  if (type === 'nova') {
+    // Nova: centered name with full-width accent bar, then skill chips
+    return (
+      <div className={`w-14 h-18 border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`h-1.5 ${lineColor} w-3/4`}></div>
+          <div className={`h-1 ${accentColor} w-full mt-0.5`}></div>
+        </div>
+        <div className="flex-1 space-y-1 mt-1">
+          <div className={`h-0.5 ${accentColor} w-full`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+          <div className="h-0.5"></div>
+          {/* skill chips row */}
+          <div className="flex gap-0.5 flex-wrap">
+            <div className={`h-1 w-3 border ${borderColor} rounded-full`}></div>
+            <div className={`h-1 w-4 border ${borderColor} rounded-full`}></div>
+            <div className={`h-1 w-2 border ${borderColor} rounded-full`}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'crisp') {
+    // Crisp: ultra-minimal, light-weight name, widely-spaced gray headers
+    return (
+      <div className={`w-14 h-18 border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`h-1.5 ${lineColor} w-2/3 opacity-40`}></div>
+          <div className={`h-px bg-gray-200 w-full`}></div>
+          <div className={`h-0.5 ${lineColor} w-1/2 opacity-30`}></div>
+        </div>
+        <div className="flex-1 space-y-1.5 mt-1">
+          <div className={`h-0.5 ${lineColor} w-2/5 opacity-25`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-40`}></div>
+          <div className={`h-0.5 ${lineColor} w-4/6 opacity-40`}></div>
+          <div className={`h-0.5 ${lineColor} w-1/3 opacity-25`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-40`}></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'executive') {
+    // Executive: centered name, double underline, small-caps section headers
+    return (
+      <div className={`w-14 h-18 border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`h-1.5 ${lineColor} w-3/4`}></div>
+          <div className={`h-0.5 ${lineColor} w-1/2`}></div>
+          <div className={`h-px ${lineColor} w-1/3 opacity-50`}></div>
+        </div>
+        <div className="flex-1 space-y-1 mt-1">
+          <div className={`h-0.5 ${lineColor} w-2/5 border-b-2 ${borderColor} pb-0.5`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+          <div className={`h-0.5 ${lineColor} w-4/6 opacity-50`}></div>
+          <div className="h-0.5"></div>
+          <div className={`h-0.5 ${lineColor} w-1/3 border-b-2 ${borderColor} pb-0.5`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'timeline') {
+    // Timeline: accent left-border section title, timeline dots on entries
+    return (
+      <div className={`w-14 h-18 border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`h-1.5 ${lineColor} w-3/4`}></div>
+          <div className={`h-0.5 ${lineColor} w-1/2 opacity-60`}></div>
+        </div>
+        <div className="flex-1 space-y-1 mt-1">
+          {/* section title with left accent */}
+          <div className={`flex items-center gap-0.5`}>
+            <div className={`w-0.5 h-2 ${accentColor}`}></div>
+            <div className={`h-0.5 ${lineColor} w-2/5`}></div>
+          </div>
+          {/* timeline entries */}
+          {[1, 2].map((i) => (
+            <div key={i} className="flex items-start gap-1">
+              <div className={`w-1 h-1 rounded-full ${accentColor} mt-0.5 shrink-0`}></div>
+              <div className="flex-1 space-y-0.5">
+                <div className={`h-0.5 ${lineColor} w-5/6`}></div>
+                <div className={`h-0.5 ${lineColor} w-4/6 opacity-50`}></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (type === 'sidebar-pro') {
+    // Sidebar Pro: dark left sidebar + white right main
+    return (
+      <div className={`w-14 h-18 border ${borderColor} bg-white flex overflow-hidden`}>
+        {/* Dark sidebar */}
+        <div className={`w-5 h-full ${accentColor} opacity-80 p-0.5 space-y-0.5`}>
+          <div className="h-1.5 bg-white opacity-80 w-full rounded-sm"></div>
+          <div className="h-px bg-white opacity-40 w-full"></div>
+          <div className="h-0.5 bg-white opacity-50 w-4/5"></div>
+          <div className="h-0.5 bg-white opacity-50 w-3/5"></div>
+          <div className="h-0.5 bg-white opacity-50 w-4/5"></div>
+          <div className="h-px bg-white opacity-30 w-full mt-0.5"></div>
+          <div className="h-0.5 bg-white opacity-50 w-3/4"></div>
+          <div className="h-0.5 bg-white opacity-50 w-2/3"></div>
+        </div>
+        {/* White main */}
+        <div className="flex-1 p-1 space-y-0.5">
+          <div className={`h-0.5 ${accentColor} w-full`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+          <div className={`h-0.5 ${lineColor} w-4/6 opacity-50`}></div>
+          <div className="h-0.5"></div>
+          <div className={`h-0.5 ${accentColor} w-full`}></div>
+          <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+          <div className={`h-0.5 ${lineColor} w-3/6 opacity-50`}></div>
+        </div>
+      </div>
+    );
+  }
+
+  // Two column thumbnail (swiss-two-column) — default fallback
   return (
     <div className={`w-14 h-18 border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
       {/* Header - centered */}

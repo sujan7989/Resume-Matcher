@@ -26,6 +26,19 @@
   padding: var(--margin-top) var(--margin-right) var(--margin-bottom) var(--margin-left);
   /* Prevent the body itself from adding extra height beyond its content */
   box-sizing: border-box;
+
+  /* ── Crisp typography rendering ───────────────────────────────────────── */
+  /* These properties improve sharpness in both the browser preview (especially
+     at sub-1.0 CSS scale transforms) and in Playwright PDF output.             */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Promote to its own compositing layer so the CSS scale() transform in the
+     preview doesn't cause sub-pixel blurring on the resume content.             */
+  will-change: transform;
+  /* Ensure crisp sub-pixel rendering on high-DPI screens */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .resume-header {

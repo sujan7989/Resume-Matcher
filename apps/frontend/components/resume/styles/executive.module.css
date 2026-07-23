@@ -1,0 +1,95 @@
+@import './_tokens.css';
+
+/*
+  Executive Template
+  ID: executive
+
+  Senior professional single-column layout. Centered name with a decorative
+  double underline, small-caps bold section headers, clean serif typography.
+  Optimised for senior engineers, managers, and technical leads.
+*/
+
+.container {
+  width: 100%;
+}
+
+.name {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--header-scale));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--resume-text-primary);
+}
+
+/* Double-rule decoration below name */
+.nameUnderline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0.35rem auto 0;
+  width: 80px;
+}
+
+.nameUnderlinePrimary {
+  width: 100%;
+  height: 2px;
+  background-color: var(--resume-text-primary);
+}
+
+.nameUnderlineSecondary {
+  width: 60%;
+  height: 1px;
+  background-color: var(--resume-text-tertiary);
+}
+
+.contactRow {
+  font-size: calc(var(--font-size-base) * 0.85);
+  color: var(--resume-text-body);
+  letter-spacing: 0.01em;
+}
+
+/* Full-width rule before section */
+.sectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--section-header-scale));
+  font-weight: 700;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  color: var(--resume-text-primary);
+  border-bottom: 2px solid var(--resume-text-primary);
+  padding-bottom: 0.15rem;
+  margin-bottom: var(--item-gap);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.entryTitle {
+  font-weight: 700;
+  color: var(--resume-text-primary);
+}
+
+.entryOrg {
+  font-weight: 400;
+  color: var(--resume-text-secondary);
+}
+
+.entryDate {
+  font-size: calc(var(--font-size-base) * 0.82);
+  color: var(--resume-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media print {
+  .nameUnderlinePrimary,
+  .nameUnderlineSecondary {
+    background-color: var(--resume-text-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .sectionTitle {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+}

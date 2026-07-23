@@ -1,0 +1,77 @@
+@import './_tokens.css';
+
+/*
+  Nova Student Template
+  ID: nova
+
+  Clean single-column layout for students and fresh graduates.
+  Bold full-bleed accent bar under the name, skills as inline chips.
+  ATS-friendly: all text in plain DOM nodes, no images.
+*/
+
+.container {
+  width: 100%;
+}
+
+/* Full-width accent stripe under header */
+.headerAccentBar {
+  height: 3px;
+  background-color: var(--resume-accent-primary);
+  margin: 0.5rem 0 0;
+  width: 100%;
+}
+
+.sectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--section-header-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--resume-accent-primary);
+  border-bottom: 2px solid var(--resume-accent-primary);
+  padding-bottom: 0.1rem;
+  margin-bottom: var(--item-gap);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* Skill chips — spaced, readable */
+.skillChip {
+  display: inline-block;
+  font-family: var(--body-font);
+  font-size: calc(var(--font-size-base) * 0.78);
+  padding: 0.15rem 0.55rem;
+  margin: 0.1rem 0.2rem;
+  border: 1px solid var(--resume-accent-primary);
+  border-radius: 99px;
+  color: var(--resume-accent-primary);
+  white-space: nowrap;
+}
+
+.skillsWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+}
+
+@media print {
+  .headerAccentBar {
+    background-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .sectionTitle {
+    color: var(--resume-accent-primary) !important;
+    border-bottom-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  .skillChip {
+    border-color: var(--resume-accent-primary) !important;
+    color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

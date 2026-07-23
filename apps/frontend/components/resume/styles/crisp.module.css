@@ -1,0 +1,85 @@
+@import './_tokens.css';
+
+/*
+  Crisp Minimal Template
+  ID: crisp
+
+  Ultra-clean single-column ATS layout. Spaced-out thin ruled section headers,
+  generous white space, no color accents — pure black-and-white typography.
+  Ideal for internships and entry-level applications where ATS compatibility
+  and readability are paramount.
+*/
+
+.container {
+  width: 100%;
+}
+
+/* Name — large, light weight, all-caps */
+.name {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--header-scale));
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--resume-text-primary);
+}
+
+.contactRow {
+  font-size: calc(var(--font-size-base) * 0.82);
+  color: var(--resume-text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* Full-width thin rule divider */
+.divider {
+  border: none;
+  border-top: 1px solid var(--resume-border-secondary);
+  margin: 0.5rem 0;
+}
+
+/* Thin rule, all-caps, widely spaced */
+.sectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * 0.8);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  color: var(--resume-text-tertiary);
+  border-bottom: 1px solid var(--resume-border-secondary);
+  padding-bottom: 0.2rem;
+  margin-bottom: var(--item-gap);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.entryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.entryTitle {
+  font-weight: 600;
+  color: var(--resume-text-primary);
+}
+
+.entryOrg {
+  font-weight: 400;
+  font-style: italic;
+  color: var(--resume-text-body);
+}
+
+.entryDate {
+  font-size: calc(var(--font-size-base) * 0.8);
+  color: var(--resume-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+@media print {
+  .sectionTitle {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+}

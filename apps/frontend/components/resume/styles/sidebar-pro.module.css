@@ -1,0 +1,143 @@
+@import './_tokens.css';
+
+/*
+  Sidebar Pro Template
+  ID: sidebar-pro
+
+  Two-column layout with a dark left sidebar (contact, skills, education)
+  and a white main content area (summary, experience, projects).
+  Accent color drives the sidebar background.
+  ATS-compatible: all text is real DOM nodes.
+*/
+
+.wrapper {
+  display: grid;
+  grid-template-columns: 32% 68%;
+  width: 100%;
+  min-height: 100%;
+}
+
+/* ── Left Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  background-color: var(--resume-accent-primary);
+  padding: 1.25rem 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+}
+
+.sidebarName {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * 1.6);
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.15;
+  word-break: break-word;
+}
+
+.sidebarTitle {
+  font-size: calc(var(--font-size-base) * 0.9);
+  color: rgba(255, 255, 255, 0.82);
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.sidebarSectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * 0.78);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 0.2rem;
+  margin-bottom: calc(var(--item-gap) * 1.5);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.sidebarText {
+  font-size: calc(var(--font-size-base) * 0.82);
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.sidebarLink {
+  font-size: calc(var(--font-size-base) * 0.82);
+  color: rgba(255, 255, 255, 0.88);
+  text-decoration: underline;
+}
+
+.sidebarSkill {
+  display: block;
+  font-size: calc(var(--font-size-base) * 0.8);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0.1rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.sidebarSkill:last-child {
+  border-bottom: none;
+}
+
+/* ── Main Content ─────────────────────────────────────────────────── */
+.main {
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  background: #ffffff;
+}
+
+.mainSectionTitle {
+  font-family: var(--header-font);
+  font-size: calc(var(--font-size-base) * var(--section-header-scale));
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--resume-accent-primary);
+  border-bottom: 2px solid var(--resume-accent-primary);
+  padding-bottom: 0.1rem;
+  margin-bottom: var(--item-gap);
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.entryTitle {
+  font-weight: 700;
+  color: var(--resume-text-primary);
+}
+
+.entryOrg {
+  font-weight: 500;
+  color: var(--resume-text-secondary);
+}
+
+.entryDate {
+  font-size: calc(var(--font-size-base) * 0.78);
+  color: var(--resume-text-tertiary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: var(--resume-font-mono);
+}
+
+@media print {
+  .sidebar {
+    background-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  .mainSectionTitle {
+    color: var(--resume-accent-primary) !important;
+    border-bottom-color: var(--resume-accent-primary) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+  .sidebarSectionTitle {
+    break-after: avoid !important;
+    page-break-after: avoid !important;
+  }
+}

@@ -7,6 +7,11 @@ import {
   ResumeLatex,
   ResumeClean,
   ResumeVivid,
+  ResumeNova,
+  ResumeCrisp,
+  ResumeExecutive,
+  ResumeTimeline,
+  ResumeSidebarPro,
 } from '@/components/resume';
 import {
   type TemplateSettings,
@@ -224,6 +229,42 @@ const Resume: React.FC<ResumeProps> = ({
       )}
       {mergedSettings.template === 'vivid' && (
         <ResumeVivid
+          data={resumeData}
+          showContactIcons={mergedSettings.showContactIcons}
+          sectionHeadings={sectionHeadings}
+          fallbackLabels={fallbackLabels}
+        />
+      )}
+      {mergedSettings.template === 'nova' && (
+        <ResumeNova
+          data={resumeData}
+          showContactIcons={mergedSettings.showContactIcons}
+          additionalSectionLabels={additionalSectionLabels}
+        />
+      )}
+      {mergedSettings.template === 'crisp' && (
+        <ResumeCrisp
+          data={resumeData}
+          showContactIcons={mergedSettings.showContactIcons}
+          additionalSectionLabels={additionalSectionLabels}
+        />
+      )}
+      {mergedSettings.template === 'executive' && (
+        <ResumeExecutive
+          data={resumeData}
+          showContactIcons={mergedSettings.showContactIcons}
+          additionalSectionLabels={additionalSectionLabels}
+        />
+      )}
+      {mergedSettings.template === 'timeline' && (
+        <ResumeTimeline
+          data={resumeData}
+          showContactIcons={mergedSettings.showContactIcons}
+          additionalSectionLabels={additionalSectionLabels}
+        />
+      )}
+      {mergedSettings.template === 'sidebar-pro' && (
+        <ResumeSidebarPro
           data={resumeData}
           showContactIcons={mergedSettings.showContactIcons}
           sectionHeadings={sectionHeadings}

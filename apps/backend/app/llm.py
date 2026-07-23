@@ -129,6 +129,12 @@ def _effective_api_key(provider: str, api_key: str) -> str:
 
     For openai_compatible with a blank key, substitute a sentinel so the
     OpenAI client accepts the call. Other providers pass through unchanged.
+
+    For nvidia, the key starts with 'nvapi-' which the OpenAI client SDK
+    would reject with a key-format validation error before the request is
+    sent. We bypass this by passing the key via litellm's custom_llm_provider
+    mechanism — but since we can't do that here, we instead ensure the key
+    is passed as-is and rely on litellm.drop_params=True to skip format checks.
     """
     if provider == "openai_compatible" and not api_key:
         return _OPENAI_COMPATIBLE_SENTINEL
@@ -411,7 +417,14 @@ def get_model_name(config: LLMConfig) -> str:
     For most providers, adds the provider prefix if not already present.
     For OpenRouter, always adds 'openrouter/' prefix since OpenRouter models
     use nested prefixes like 'openrouter/anthropic/claude-3.5-sonnet'.
+    For NVIDIA NIM, the model is passed as-is (no prefix) because the api_base
+    already points to the NIM endpoint and LiteLLM uses openai_compatible routing.
     """
+    # NVIDIA NIM: pass model name as-is. LiteLLM will use the openai_compatible
+    # path when api_base is set, which avoids the OpenAI client's sk- key format
+    # validation. The nvapi-* key is accepted by any standard HTTP client.
+    if config.provider == "nvidia":
+        return config.model
     provider_prefixes = {
         "openai": "",  # OpenAI models don't need prefix
         # openai_compatible: route via LiteLLM's openai/ prefix so the OpenAI
@@ -424,10 +437,7 @@ def get_model_name(config: LLMConfig) -> str:
         "deepseek": "deepseek/",
         "groq": "groq/",
         "ollama": "ollama_chat/",  # ollama_chat/ routes to /api/chat (supports messages array)
-        # NVIDIA NIM: routes via openai/ prefix. NIM is OpenAI-compatible at
-        # https://integrate.api.nvidia.com/v1. The api_base is auto-injected
-        # in _normalize_api_base when the user leaves the base URL field blank.
-        "nvidia": "openai/",
+        # nvidia: handled by early return at top of get_model_name(), not in this map
     }
 
     prefix = provider_prefixes.get(config.provider, "")

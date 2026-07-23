@@ -9,7 +9,8 @@ export type LLMProvider =
   | 'gemini'
   | 'deepseek'
   | 'groq'
-  | 'ollama';
+  | 'ollama'
+  | 'nvidia';
 
 // Reasoning-effort levels supported by LiteLLM. `null` (or absent) means
 // "do not send the parameter" — the default for max compatibility.
@@ -159,6 +160,13 @@ export const PROVIDER_INFO: Record<
   deepseek: { name: 'DeepSeek', defaultModel: 'deepseek-chat', requiresKey: true },
   groq: { name: 'Groq', defaultModel: 'llama-3.3-70b-versatile', requiresKey: true },
   ollama: { name: 'Ollama (Local)', defaultModel: 'gemma3:4b', requiresKey: false },
+  // NVIDIA NIM — free tier at https://build.nvidia.com. OpenAI-compatible API.
+  // Base URL is pre-filled automatically when this provider is selected.
+  nvidia: {
+    name: 'NVIDIA NIM',
+    defaultModel: 'meta/llama-3.3-70b-instruct',
+    requiresKey: true,
+  },
 };
 
 // Feature configuration types
@@ -377,7 +385,8 @@ export type ApiKeyProvider =
   | 'deepseek'
   | 'groq'
   | 'openai_compatible'
-  | 'ollama';
+  | 'ollama'
+  | 'nvidia';
 
 // Map an LLM provider (the active-provider axis) to its key-store provider
 // name. Mirrors the backend `_PROVIDER_KEY_MAP` (gemini → google; the local
@@ -406,6 +415,7 @@ export interface ApiKeysUpdateRequest {
   groq?: string;
   openai_compatible?: string;
   ollama?: string;
+  nvidia?: string;
 }
 
 export interface ApiKeysUpdateResponse {
@@ -424,6 +434,7 @@ export const API_KEY_PROVIDER_INFO: Record<ApiKeyProvider, { name: string; descr
     groq: { name: 'Groq', description: 'Llama, Mixtral, Gemma on Groq' },
     openai_compatible: { name: 'OpenAI-Compatible', description: 'Self-hosted / proxy endpoints' },
     ollama: { name: 'Ollama', description: 'Local Ollama server' },
+    nvidia: { name: 'NVIDIA NIM', description: 'Free Llama/Mistral/Qwen models via NIM' },
   };
 
 // Fetch API key status for all providers

@@ -160,6 +160,7 @@ _LEGACY_PROVIDER_KEY_MAP: dict[str, str] = {
     "deepseek": "deepseek",
     "groq": "groq",
     "ollama": "ollama",
+    "nvidia": "nvidia",
 }
 
 
@@ -188,6 +189,7 @@ def _get_llm_api_key_with_fallback() -> str:
         "deepseek": "deepseek",
         "groq": "groq",
         "ollama": "ollama",
+        "nvidia": "nvidia",
     }
 
     config_provider = provider_map.get(provider, provider)
@@ -213,6 +215,7 @@ class Settings(BaseSettings):
         "deepseek",
         "groq",
         "ollama",
+        "nvidia",
     ] = "openai"
     llm_model: str = "gpt-5-nano-2025-08-07"
     llm_api_key: str = ""

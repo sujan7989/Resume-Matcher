@@ -437,6 +437,7 @@ SUPPORTED_PROVIDERS = [
     "groq",
     "openai_compatible",
     "ollama",
+    "nvidia",
 ]
 
 
@@ -538,6 +539,13 @@ async def update_api_keys(request: ApiKeysUpdateRequest) -> ApiKeysUpdateRespons
         elif "ollama" in stored_keys:
             del stored_keys["ollama"]
         updated.append("ollama")
+
+    if request.nvidia is not None:
+        if request.nvidia:
+            stored_keys["nvidia"] = request.nvidia
+        elif "nvidia" in stored_keys:
+            del stored_keys["nvidia"]
+        updated.append("nvidia")
 
     save_api_keys_to_config(stored_keys)
     invalidate_config_cache()

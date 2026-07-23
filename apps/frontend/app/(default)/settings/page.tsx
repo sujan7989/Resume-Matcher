@@ -79,6 +79,7 @@ const PROVIDERS: LLMProvider[] = [
   'gemini',
   'deepseek',
   'groq',
+  'nvidia',
   'ollama',
 ];
 
@@ -393,6 +394,11 @@ export default function SettingsPage() {
     if (newProvider === 'openai_compatible' && !apiBase.trim()) {
       // llama.cpp default; user can override for vLLM / LM Studio / etc.
       setApiBase('http://localhost:8080/v1');
+    }
+    if (newProvider === 'nvidia') {
+      // NVIDIA NIM public API — always use this base URL.
+      // Get your free API key at https://build.nvidia.com
+      setApiBase('https://integrate.api.nvidia.com/v1');
     }
 
     // Clear the key input on switch, but drive the "has stored key" hint from
@@ -975,6 +981,28 @@ export default function SettingsPage() {
                 <p className="text-xs text-steel-grey font-mono">
                   {t('settings.llmConfiguration.baseUrlDescription')}
                 </p>
+                {/* NVIDIA NIM hint — shown only when nvidia provider is selected */}
+                {provider === 'nvidia' && (
+                  <div className="border border-green-300 bg-green-50 p-3 text-xs font-mono text-green-800 space-y-1">
+                    <div className="font-bold">NVIDIA NIM — Free Tier Available</div>
+                    <div>Base URL is pre-filled: https://integrate.api.nvidia.com/v1</div>
+                    <div>
+                      Get your free API key at{' '}
+                      <a
+                        href="https://build.nvidia.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        build.nvidia.com
+                      </a>
+                    </div>
+                    <div className="text-green-700">
+                      Recommended free models: meta/llama-3.3-70b-instruct,
+                      mistralai/mistral-7b-instruct-v0.3, nvidia/llama-3.1-nemotron-70b-instruct
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Reasoning Effort (optional, only applies to reasoning-capable models) */}

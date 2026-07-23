@@ -699,6 +699,8 @@ class ApiKeysUpdateRequest(BaseModel):
     # Local/self-hosted providers that may sit behind an auth proxy.
     openai_compatible: str | None = None
     ollama: str | None = None
+    # NVIDIA NIM — OpenAI-compatible API at https://integrate.api.nvidia.com/v1
+    nvidia: str | None = None
 
 
 class ApiKeysUpdateResponse(BaseModel):

@@ -161,10 +161,11 @@ export const PROVIDER_INFO: Record<
   groq: { name: 'Groq', defaultModel: 'llama-3.3-70b-versatile', requiresKey: true },
   ollama: { name: 'Ollama (Local)', defaultModel: 'gemma3:4b', requiresKey: false },
   // NVIDIA NIM — free tier at https://build.nvidia.com. OpenAI-compatible API.
-  // Base URL is pre-filled automatically when this provider is selected.
+  // Base URL auto-fills to https://integrate.api.nvidia.com/v1 in the backend.
+  // Type any model name from build.nvidia.com (e.g. meta/llama-3.3-70b-instruct).
   nvidia: {
     name: 'NVIDIA NIM',
-    defaultModel: 'meta/llama-3.3-70b-instruct',
+    defaultModel: '',
     requiresKey: true,
   },
 };

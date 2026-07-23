@@ -396,9 +396,9 @@ export default function SettingsPage() {
       setApiBase('http://localhost:8080/v1');
     }
     if (newProvider === 'nvidia') {
-      // NVIDIA NIM public API — always use this base URL.
-      // Get your free API key at https://build.nvidia.com
-      setApiBase('https://integrate.api.nvidia.com/v1');
+      // Clear base URL — the backend auto-injects https://integrate.api.nvidia.com/v1
+      // when the field is blank, so there's no need for the user to type it.
+      setApiBase('');
     }
 
     // Clear the key input on switch, but drive the "has stored key" hint from
@@ -417,6 +417,13 @@ export default function SettingsPage() {
     try {
       if (requiresApiKey && !apiKey.trim() && !hasStoredApiKey) {
         setError(t('settings.errors.apiKeyRequired'));
+        setStatus('error');
+        return;
+      }
+
+      // For NVIDIA, model is required (no default) — catch it early before the backend hangs
+      if (provider === 'nvidia' && !model.trim()) {
+        setError('Model name is required for NVIDIA NIM. Enter a model from build.nvidia.com.');
         setStatus('error');
         return;
       }
@@ -473,6 +480,19 @@ export default function SettingsPage() {
         api_base: apiBase.trim() || null,
         reasoning_effort: reasoningEffort === 'auto' ? '' : (reasoningEffort as ReasoningEffort),
       };
+
+      // For NVIDIA, model is required
+      if (provider === 'nvidia' && !model.trim()) {
+        setHealthCheck({
+          healthy: false,
+          provider,
+          model: '',
+          error:
+            'Model name is required. Enter a model from build.nvidia.com (e.g. meta/llama-3.3-70b-instruct).',
+        });
+        setStatus('idle');
+        return;
+      }
 
       // Send the user-typed key if present (for any provider, required or
       // optional). If blank, omit the field so the backend falls back to
@@ -884,13 +904,21 @@ export default function SettingsPage() {
                   id="model"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder={providerInfo.defaultModel}
+                  placeholder={
+                    provider === 'nvidia'
+                      ? 'e.g. meta/llama-3.3-70b-instruct'
+                      : providerInfo.defaultModel || 'Enter model name'
+                  }
                   className="font-mono"
                 />
                 <p className="text-xs text-steel-grey font-mono">
-                  {t('settings.llmConfiguration.defaultModel', {
-                    model: providerInfo.defaultModel,
-                  })}
+                  {provider === 'nvidia'
+                    ? 'Enter any model name from build.nvidia.com (e.g. meta/llama-3.3-70b-instruct, mistralai/mistral-7b-instruct-v0.3)'
+                    : providerInfo.defaultModel
+                      ? t('settings.llmConfiguration.defaultModel', {
+                          model: providerInfo.defaultModel,
+                        })
+                      : ''}
                 </p>
               </div>
 
@@ -985,7 +1013,11 @@ export default function SettingsPage() {
                 {provider === 'nvidia' && (
                   <div className="border border-green-300 bg-green-50 p-3 text-xs font-mono text-green-800 space-y-1">
                     <div className="font-bold">NVIDIA NIM — Free Tier Available</div>
-                    <div>Base URL is pre-filled: https://integrate.api.nvidia.com/v1</div>
+                    <div>
+                      Base URL is optional — the backend automatically uses{' '}
+                      <code className="bg-green-100 px-1">https://integrate.api.nvidia.com/v1</code>{' '}
+                      when left blank.
+                    </div>
                     <div>
                       Get your free API key at{' '}
                       <a
@@ -995,11 +1027,17 @@ export default function SettingsPage() {
                         className="underline"
                       >
                         build.nvidia.com
-                      </a>
+                      </a>{' '}
+                      (no credit card required)
                     </div>
-                    <div className="text-green-700">
-                      Recommended free models: meta/llama-3.3-70b-instruct,
-                      mistralai/mistral-7b-instruct-v0.3, nvidia/llama-3.1-nemotron-70b-instruct
+                    <div className="text-green-700 pt-0.5">
+                      Model field: type the exact model name from build.nvidia.com, e.g.
+                      <br />
+                      <code className="bg-green-100 px-1">meta/llama-3.3-70b-instruct</code>
+                      {'  '}
+                      <code className="bg-green-100 px-1">mistralai/mistral-7b-instruct-v0.3</code>
+                      {'  '}
+                      <code className="bg-green-100 px-1">google/gemma-3-27b-it</code>
                     </div>
                   </div>
                 )}

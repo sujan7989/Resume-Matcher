@@ -86,6 +86,10 @@ def _normalize_api_base(provider: str, api_base: str | None) -> str | None:
     # OpenAI / OpenAI-compatible: preserve the URL as-is. The OpenAI client
     # resolves paths correctly whether the base includes /v1 or not.
     if provider in ("openai", "openai_compatible", "nvidia"):
+        # NVIDIA NIM: default to the public NIM endpoint when the user leaves
+        # the base URL field blank — no need to type it every time.
+        if provider == "nvidia" and not base:
+            return "https://integrate.api.nvidia.com/v1"
         return base or None
 
     # Anthropic handler appends '/v1/messages'. If base already ends with '/v1',
@@ -420,9 +424,9 @@ def get_model_name(config: LLMConfig) -> str:
         "deepseek": "deepseek/",
         "groq": "groq/",
         "ollama": "ollama_chat/",  # ollama_chat/ routes to /api/chat (supports messages array)
-        # NVIDIA NIM: routes via openai/ prefix — NIM is OpenAI-compatible at
+        // NVIDIA NIM: routes via openai/ prefix — NIM is OpenAI-compatible at
         # https://integrate.api.nvidia.com/v1. The api_base is set automatically
-        # when the user selects the nvidia provider.
+        # in the backend when the user selects the nvidia provider and leaves it blank.
         "nvidia": "openai/",
     }
 

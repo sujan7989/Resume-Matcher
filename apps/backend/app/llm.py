@@ -86,7 +86,19 @@ def _normalize_api_base(provider: str, api_base: str | None) -> str | None:
     # OpenAI / OpenAI-compatible: preserve the URL as-is. The OpenAI client
     # resolves paths correctly whether the base includes /v1 or not.
     # NVIDIA: also preserve as-is when a custom base URL is provided.
-    if provider in ("openai", "openai_compatible", "nvidia"):
+    if provider in ("openai", "openai_compatible"):
+        return base or None
+
+    # NVIDIA NIM: LiteLLM's nvidia_nim provider appends /v1/chat/completions
+    # to whatever api_base is given. If the user pastes the full
+    # https://integrate.api.nvidia.com/v1 URL, strip the /v1 suffix to
+    # prevent the double /v1/v1/ path. When blank, return None so LiteLLM
+    # uses its built-in default endpoint.
+    if provider == "nvidia":
+        if not base:
+            return None
+        if base.endswith("/v1"):
+            base = base[: -len("/v1")].rstrip("/")
         return base or None
 
     # Anthropic handler appends '/v1/messages'. If base already ends with '/v1',

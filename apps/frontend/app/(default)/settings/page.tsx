@@ -421,9 +421,14 @@ export default function SettingsPage() {
         return;
       }
 
-      // For NVIDIA, model is required (no default) — catch it early before the backend hangs
+      // For NVIDIA, model is required and must include org prefix (e.g. z-ai/glm-5.2)
       if (provider === 'nvidia' && !model.trim()) {
-        setError('Model name is required for NVIDIA NIM. Enter a model from build.nvidia.com.');
+        setError('Model name is required for NVIDIA NIM. Enter a model from build.nvidia.com (e.g. z-ai/glm-5.2).');
+        setStatus('error');
+        return;
+      }
+      if (provider === 'nvidia' && !model.trim().includes('/')) {
+        setError(`NVIDIA model must include the org prefix, e.g. "z-ai/${model.trim()}" not just "${model.trim()}". Check build.nvidia.com for the exact model ID.`);
         setStatus('error');
         return;
       }
@@ -481,14 +486,24 @@ export default function SettingsPage() {
         reasoning_effort: reasoningEffort === 'auto' ? '' : (reasoningEffort as ReasoningEffort),
       };
 
-      // For NVIDIA, model is required
+      // For NVIDIA, model is required and must include org prefix
       if (provider === 'nvidia' && !model.trim()) {
         setHealthCheck({
           healthy: false,
           provider,
           model: '',
           error:
-            'Model name is required. Enter a model from build.nvidia.com (e.g. meta/llama-3.3-70b-instruct).',
+            'Model name is required. Enter a model from build.nvidia.com (e.g. z-ai/glm-5.2, meta/llama-3.3-70b-instruct).',
+        });
+        setStatus('idle');
+        return;
+      }
+      if (provider === 'nvidia' && !model.trim().includes('/')) {
+        setHealthCheck({
+          healthy: false,
+          provider,
+          model: model.trim(),
+          error: `NVIDIA model must include the org prefix. Did you mean "z-ai/${model.trim()}"? Check build.nvidia.com for the exact model ID.`,
         });
         setStatus('idle');
         return;
@@ -906,14 +921,14 @@ export default function SettingsPage() {
                   onChange={(e) => setModel(e.target.value)}
                   placeholder={
                     provider === 'nvidia'
-                      ? 'e.g. meta/llama-3.3-70b-instruct'
+                      ? 'e.g. z-ai/glm-5.2'
                       : providerInfo.defaultModel || 'Enter model name'
                   }
                   className="font-mono"
                 />
                 <p className="text-xs text-steel-grey font-mono">
                   {provider === 'nvidia'
-                    ? 'Enter any model name from build.nvidia.com (e.g. meta/llama-3.3-70b-instruct, mistralai/mistral-7b-instruct-v0.3)'
+                    ? 'Format: org/model-name — e.g. z-ai/glm-5.2, meta/llama-3.3-70b-instruct, mistralai/mistral-7b-instruct-v0.3'
                     : providerInfo.defaultModel
                       ? t('settings.llmConfiguration.defaultModel', {
                           model: providerInfo.defaultModel,
@@ -1031,8 +1046,10 @@ export default function SettingsPage() {
                       (no credit card required)
                     </div>
                     <div className="text-green-700 pt-0.5">
-                      Model field: type the exact model name from build.nvidia.com, e.g.
+                      Model field: always use <strong>org/model-name</strong> format from build.nvidia.com, e.g.
                       <br />
+                      <code className="bg-green-100 px-1">z-ai/glm-5.2</code>
+                      {'  '}
                       <code className="bg-green-100 px-1">meta/llama-3.3-70b-instruct</code>
                       {'  '}
                       <code className="bg-green-100 px-1">mistralai/mistral-7b-instruct-v0.3</code>

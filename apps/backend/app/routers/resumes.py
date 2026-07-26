@@ -782,14 +782,10 @@ async def _improve_preview_flow(
     content_hash = _hash_job_content(job["content"])
     if not job_keywords or job_keywords_hash != content_hash:
         job_keywords = await extract_job_keywords(job["content"])
-        # Cache extracted keywords with a content hash for basic invalidation.
-        # Also surface company/role to the job's top level so the tracker's
-        # auto-create-on-confirm path can read them without an extra LLM call.
         cache_updates: dict[str, Any] = {
             "job_keywords": job_keywords,
             "job_keywords_hash": content_hash,
         }
-        # LLM output isn't guaranteed to be a string — guard before .strip().
         raw_company = job_keywords.get("company")
         raw_role = job_keywords.get("role")
         company = raw_company.strip() if isinstance(raw_company, str) else ""
@@ -822,12 +818,27 @@ async def _improve_preview_flow(
     if original_resume_data:
         skill_targets: list[dict[str, Any]] = []
         try:
-            raw_skill_plan = await generate_skill_target_plan(
-                original_resume_data=original_resume_data,
-                job_description=job["content"],
-                job_keywords=job_keywords,
-                language=language,
+            # Run skill target planning and diff generation in parallel.
+            # skill_target_plan only needs job_keywords (already resolved above),
+            # so both calls are independent and safe to run concurrently.
+            raw_skill_plan, diff_result = await asyncio.gather(
+                generate_skill_target_plan(
+                    original_resume_data=original_resume_data,
+                    job_description=job["content"],
+                    job_keywords=job_keywords,
+                    language=language,
+                ),
+                generate_resume_diffs(
+                    original_resume=resume["content"],
+                    job_description=job["content"],
+                    job_keywords=job_keywords,
+                    language=language,
+                    prompt_id=prompt_id,
+                    original_resume_data=original_resume_data,
+                    skill_targets=[],  # will be applied after diffs via allowed_skill_targets
+                ),
             )
+
             verified_skill_plan = verify_skill_target_plan(
                 raw_skill_plan,
                 original_resume_data=original_resume_data,
@@ -847,18 +858,21 @@ async def _improve_preview_flow(
                     f"{len(rejected_targets)} unsupported skill target(s) rejected"
                 )
         except Exception as e:
-            logger.warning("Skill target planning failed, continuing without it: %s", e)
+            logger.warning("Skill target planning or diff generation failed: %s", e)
             response_warnings.append("Skill target planning failed")
-
-        diff_result = await generate_resume_diffs(
-            original_resume=resume["content"],
-            job_description=job["content"],
-            job_keywords=job_keywords,
-            language=language,
-            prompt_id=prompt_id,
-            original_resume_data=original_resume_data,
-            skill_targets=skill_targets,
-        )
+            # Fall back: run diff generation alone if parallel failed
+            try:
+                diff_result = await generate_resume_diffs(
+                    original_resume=resume["content"],
+                    job_description=job["content"],
+                    job_keywords=job_keywords,
+                    language=language,
+                    prompt_id=prompt_id,
+                    original_resume_data=original_resume_data,
+                    skill_targets=[],
+                )
+            except Exception as e2:
+                _raise_improve_error("preview", "generate_diffs", e2, "Failed to generate resume improvements.")
 
         improved_data, applied_changes, rejected_changes = apply_diffs(
             original=original_resume_data,
@@ -930,7 +944,10 @@ async def _improve_preview_flow(
                 master_resume=master_data,
                 job_description=job["content"],
                 job_keywords=job_keywords,
-                config=RefinementConfig(),
+                # Disable keyword injection — generate_resume_diffs already injects
+                # keywords as part of the diff pass, so re-running inject_keywords
+                # here is a redundant LLM call that doubles the total latency.
+                config=RefinementConfig(enable_keyword_injection=False),
             )
             improved_data = refinement_result.refined_data
             refinement_stats = RefinementStats(

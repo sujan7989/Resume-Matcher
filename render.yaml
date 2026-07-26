@@ -12,7 +12,7 @@ services:
       - key: LLM_PROVIDER
         value: nvidia
       - key: LLM_MODEL
-        value: meta/llama-4-maverick-17b-128e-instruct
+        value: stepfun-ai/step-3.5-flash
       - key: FRONTEND_BASE_URL
         value: https://resume-matcher.vercel.app
       - key: CORS_ORIGINS

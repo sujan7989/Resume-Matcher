@@ -6,7 +6,7 @@
  * Routes handled: /api/proxy/* → BACKEND_ORIGIN/api/*
  */
 
-export const maxDuration = 300; // 5 minutes — Vercel Pro/Team plan cap
+export const maxDuration = 60; // Vercel Hobby plan max (60s)
 export const dynamic = 'force-dynamic';
 
 const BACKEND_ORIGIN =

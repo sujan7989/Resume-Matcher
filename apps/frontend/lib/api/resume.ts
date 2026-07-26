@@ -114,9 +114,19 @@ async function postImprove(
 ): Promise<ImprovedResult> {
   let response: Response;
   try {
-    // Use the configurable request timeout so NEXT_PUBLIC_REQUEST_TIMEOUT_MS
-    // actually applies to the long-running improve/preview/confirm calls (#776).
-    response = await apiPost(endpoint, payload, DEFAULT_TIMEOUT_MS);
+    // Route improve calls through /api/proxy/* (a Next.js API route with maxDuration=300)
+    // instead of the rewrite proxy which has a hard ~30s limit on Vercel free plans.
+    // /api/proxy/v1/resumes/improve/preview → BACKEND/api/v1/resumes/improve/preview
+    const proxyEndpoint = endpoint.startsWith('/')
+      ? `/api/proxy/v1${endpoint}`
+      : `/api/proxy/v1/${endpoint}`;
+
+    response = await fetch(proxyEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
+    });
   } catch (networkError) {
     console.error(`Network error during ${endpoint}:`, networkError);
     throw networkError;
@@ -261,9 +271,6 @@ export async function downloadResumePdf(
   settings?: TemplateSettings,
   locale?: Locale
 ): Promise<Blob> {
-  // Build the path segment only (without API_BASE) so apiFetch can compose the
-  // full URL correctly — avoids the /api/v1/api/v1 double-prefix that would
-  // occur if we passed the full getResumePdfUrl() result to apiFetch.
   const normalizedId = normalizeResumeId(resumeId);
   const params = new URLSearchParams();
   if (settings) {
@@ -295,9 +302,6 @@ export async function downloadResumePdf(
   }
 
   const path = `/resumes/${encodeURIComponent(normalizedId)}/pdf?${params.toString()}`;
-
-  // PDF generation can take 30–60 s when Playwright renders the page, so use
-  // a generous 120 s timeout that is independent of the LLM request timeout.
   const PDF_TIMEOUT_MS = 120_000;
   const res = await apiFetch(path, undefined, PDF_TIMEOUT_MS);
 
@@ -306,7 +310,6 @@ export async function downloadResumePdf(
     throw new Error(`Failed to download resume (status ${res.status}): ${text}`);
   }
 
-  // Guard against the proxy returning an HTML error page with a 200 status.
   const contentType = res.headers.get('content-type') ?? '';
   if (!contentType.includes('application/pdf')) {
     const body = await res.text().catch(() => '');
@@ -377,8 +380,6 @@ export async function downloadCoverLetterPdf(
   locale?: Locale
 ): Promise<Blob> {
   const url = getCoverLetterPdfUrl(resumeId, pageSize, locale);
-  // Use fetch directly since getCoverLetterPdfUrl already includes /api/v1 prefix
-  // (apiFetch would double-prefix it)
   const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text().catch(() => '');

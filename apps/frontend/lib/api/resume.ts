@@ -114,13 +114,13 @@ async function postImprove(
 ): Promise<ImprovedResult> {
   let response: Response;
   try {
-    // Route improve calls through /api/proxy/* (a Next.js API route with maxDuration=60)
-    // instead of the rewrite proxy which has a hard ~30s limit on Vercel free plans.
-    // Uses afterFiles rewrite ordering so the filesystem route wins over the backend proxy.
-    // /api/proxy/v1/resumes/improve/preview → BACKEND/api/v1/resumes/improve/preview
+    // Route improve calls through /llm-proxy/* (a Next.js function with 60s maxDuration).
+    // Uses /llm-proxy/ not /api/proxy/ to avoid being intercepted by the
+    // /api/:path* rewrite rule which forwards to the Render backend.
+    // /llm-proxy/v1/resumes/improve/preview → BACKEND/api/v1/resumes/improve/preview
     const proxyEndpoint = endpoint.startsWith('/')
-      ? `/api/proxy/v1${endpoint}`
-      : `/api/proxy/v1/${endpoint}`;
+      ? `/llm-proxy/v1${endpoint}`
+      : `/llm-proxy/v1/${endpoint}`;
 
     response = await fetch(proxyEndpoint, {
       method: 'POST',

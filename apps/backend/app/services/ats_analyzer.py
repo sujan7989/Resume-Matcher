@@ -234,7 +234,7 @@ async def analyze_resume_against_job(
     raw = await complete_json(
         prompt=prompt,
         config=config,
-        max_tokens=4000,
+        max_tokens=2000,
         schema_type="enrichment",  # closest schema type for JSON parsing
     )
 

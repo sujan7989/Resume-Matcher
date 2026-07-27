@@ -93,10 +93,11 @@ IMPORTANT:
 - Round to nearest integer
 - Be honest — a poor fit should score 30-45, a good fit 65-80, excellent 85+
 - Never inflate scores — accuracy builds trust
-- Generate exactly 5 interview questions, mix of technical and behavioral
+- Generate exactly 3 interview questions (not 5), mix of technical and behavioral
 - Interview questions must be specific to THIS resume + THIS job, not generic
 - Missing keywords should only include terms actually important for the role
-- Tailoring recommendations should be specific and immediately actionable
+- Generate exactly 3 tailoring recommendations (not 5), most impactful ones only
+- Keep all string values concise (1-2 sentences max) to reduce output size
 """
 
 

@@ -20,5 +20,5 @@ services:
       - key: LOG_LEVEL
         value: INFO
       - key: REQUEST_TIMEOUT_SECONDS
-        value: "60"
+        value: "120"
       # LLM_API_KEY and DATABASE_URL must be set in the Render dashboard (not here)

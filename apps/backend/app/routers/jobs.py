@@ -1,10 +1,11 @@
 """Job description management endpoints."""
 
+import asyncio
 import logging
 import re
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 from app.database import db
@@ -45,11 +46,38 @@ def _extract_text_from_html(html: str) -> str:
     return "\n".join(lines)
 
 
+async def _extract_and_cache_keywords(job_id: str, content: str) -> None:
+    """Background task: extract JD keywords and cache them so the first improve call is fast."""
+    try:
+        from app.services.improver import extract_job_keywords
+        import hashlib
+        keywords = await extract_job_keywords(content)
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        cache_updates = {
+            "job_keywords": keywords,
+            "job_keywords_hash": content_hash,
+        }
+        raw_company = keywords.get("company")
+        raw_role = keywords.get("role")
+        if isinstance(raw_company, str) and raw_company.strip():
+            cache_updates["company"] = raw_company.strip()
+        if isinstance(raw_role, str) and raw_role.strip():
+            cache_updates["role"] = raw_role.strip()
+        await db.update_job(job_id, cache_updates)
+        logger.info("Pre-cached keywords for job %s", job_id)
+    except Exception as e:
+        logger.warning("Background keyword extraction failed for job %s: %s", job_id, e)
+
+
 @router.post("/upload", response_model=JobUploadResponse)
-async def upload_job_descriptions(request: JobUploadRequest) -> JobUploadResponse:
+async def upload_job_descriptions(
+    request: JobUploadRequest,
+    background_tasks: BackgroundTasks,
+) -> JobUploadResponse:
     """Upload one or more job descriptions.
 
-    Stores the raw text for later use in resume tailoring.
+    Stores the raw text and immediately starts keyword extraction in the
+    background so the first improve/tailor call doesn't have to wait for it.
     Returns an array of job_ids corresponding to the input array.
     """
     if not request.job_descriptions:
@@ -65,6 +93,8 @@ async def upload_job_descriptions(request: JobUploadRequest) -> JobUploadRespons
             resume_id=request.resume_id,
         )
         job_ids.append(job["job_id"])
+        # Pre-cache keywords in background so first improve call is fast
+        background_tasks.add_task(_extract_and_cache_keywords, job["job_id"], jd.strip())
 
     return JobUploadResponse(
         message="data successfully processed",

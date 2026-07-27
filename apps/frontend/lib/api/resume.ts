@@ -114,13 +114,12 @@ async function postImprove(
 ): Promise<ImprovedResult> {
   let response: Response;
   try {
-    // Route improve calls through /llm-proxy/* (a Next.js function with 60s maxDuration).
-    // Uses /llm-proxy/ not /api/proxy/ to avoid being intercepted by the
-    // /api/:path* rewrite rule which forwards to the Render backend.
-    // /llm-proxy/v1/resumes/improve/preview → BACKEND/api/v1/resumes/improve/preview
-    const proxyEndpoint = endpoint.startsWith('/')
-      ? `/llm-proxy/v1${endpoint}`
-      : `/llm-proxy/v1/${endpoint}`;
+    // Route improve calls through /improve-proxy (a Next.js serverless function
+    // with 60s maxDuration). Uses a dedicated named route — no brackets, no
+    // path conflict with /api/:path* rewrite. The endpoint is passed as a
+    // query param so preview/confirm/improve all share the same route.
+    const endpointParam = endpoint.replace(/^\/resumes\//, '').replace(/^resumes\//, '');
+    const proxyEndpoint = `/improve-proxy?endpoint=resumes/${endpointParam}`;
 
     response = await fetch(proxyEndpoint, {
       method: 'POST',

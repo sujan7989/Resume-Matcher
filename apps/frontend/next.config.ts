@@ -38,26 +38,32 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
-    // Note: Next.js serves filesystem routes (app/api/) before rewrites.
-    // Do not create app/api/ routes or they will shadow the backend proxy.
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${BACKEND_ORIGIN}/api/:path*`,
-      },
-      {
-        source: '/docs',
-        destination: `${BACKEND_ORIGIN}/docs`,
-      },
-      {
-        source: '/redoc',
-        destination: `${BACKEND_ORIGIN}/redoc`,
-      },
-      {
-        source: '/openapi.json',
-        destination: `${BACKEND_ORIGIN}/openapi.json`,
-      },
-    ];
+    // afterFiles rewrites run AFTER filesystem routes are checked.
+    // This means /api/proxy/* (a real filesystem route) is served first,
+    // and only paths with no matching filesystem route fall through to the
+    // Render backend rewrite — which is exactly what we want.
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        {
+          source: '/api/:path*',
+          destination: `${BACKEND_ORIGIN}/api/:path*`,
+        },
+        {
+          source: '/docs',
+          destination: `${BACKEND_ORIGIN}/docs`,
+        },
+        {
+          source: '/redoc',
+          destination: `${BACKEND_ORIGIN}/redoc`,
+        },
+        {
+          source: '/openapi.json',
+          destination: `${BACKEND_ORIGIN}/openapi.json`,
+        },
+      ],
+      fallback: [],
+    };
   },
 };
 

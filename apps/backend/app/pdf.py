@@ -213,8 +213,9 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
     ul li {{ font-size: 8.5pt; color: #333; margin-bottom: 1px; line-height: 1.3; }}
     .summary-text {{ font-size: 8.5pt; color: #333; line-height: 1.4; }}
     .skills-list {{ font-size: 8.5pt; color: #333; }}
-    .skill-tag {{ display: inline-block; background: #f3f4f6; border-radius: 2px;
-                  padding: 1px 5px; margin: 1px 2px; font-size: 8pt; color: #374151; }}
+    .skill-tag {{ display: inline-block; background: #f1f5f9; border-radius: 3px;
+                  padding: 1px 6px; margin: 1px 2px; font-size: 8pt; color: #374151;
+                  border: 1px solid #e2e8f0; white-space: nowrap; line-height: 1.4; }}
     {layout_css}
     """
 

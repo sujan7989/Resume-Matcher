@@ -362,10 +362,19 @@ const AdditionalSection: React.FC<{
 
   if (!hasContent) return null;
 
-  const line = (label: string, items: string[]) =>
+  const chipLine = (label: string, items: string[], useChips = false) =>
     items.length > 0 ? (
-      <div>
-        <span className={styles.skillLabel}>{label}</span> {items.join(', ')}
+      <div className={useChips ? 'flex flex-wrap items-baseline gap-y-1' : 'flex'}>
+        <span className={`${styles.skillLabel} ${useChips ? 'w-32 shrink-0' : ''}`}>{label}</span>
+        {useChips ? (
+          <span className="flex flex-wrap gap-1">
+            {items.map((s, i) => (
+              <span key={i} className={baseStyles['resume-skill-pill']}>{s}</span>
+            ))}
+          </span>
+        ) : (
+          <span>{items.join(', ')}</span>
+        )}
       </div>
     ) : null;
 
@@ -373,10 +382,10 @@ const AdditionalSection: React.FC<{
     <div className={baseStyles['resume-section']}>
       <h3 className={styles.sectionTitle}>{displayName}</h3>
       <div className={`${baseStyles['resume-stack']} ${baseStyles['resume-text-sm']}`}>
-        {line(mergedLabels.technicalSkills, technicalSkills)}
-        {line(mergedLabels.languages, languages)}
-        {line(mergedLabels.certifications, certificationsTraining)}
-        {line(mergedLabels.awards, awards)}
+        {chipLine(mergedLabels.technicalSkills, technicalSkills, true)}
+        {chipLine(mergedLabels.languages, languages)}
+        {chipLine(mergedLabels.certifications, certificationsTraining)}
+        {chipLine(mergedLabels.awards, awards)}
       </div>
     </div>
   );

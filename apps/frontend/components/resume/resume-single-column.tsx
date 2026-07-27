@@ -418,9 +418,18 @@ const AdditionalSection: React.FC<{
       <h3 className={baseStyles['resume-section-title']}>{displayName}</h3>
       <div className={`${baseStyles['resume-stack']} ${baseStyles['resume-text-sm']}`}>
         {technicalSkills.length > 0 && (
-          <div className="flex">
+          <div className="flex flex-wrap items-baseline gap-y-1">
             <span className="font-bold w-32 shrink-0">{mergedLabels.technicalSkills}</span>
-            <span>{technicalSkills.join(', ')}</span>
+            <span className="flex flex-wrap gap-1">
+              {technicalSkills.map((s, i) => (
+                <span
+                  key={i}
+                  className={baseStyles['resume-skill-pill']}
+                >
+                  {s}
+                </span>
+              ))}
+            </span>
           </div>
         )}
         {languages.length > 0 && (

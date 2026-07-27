@@ -151,13 +151,15 @@
 .resume-skill-pill {
   font-family: var(--resume-font-mono);
   font-size: calc(var(--font-size-base) * 0.75);
-  padding: 0.125rem 0.375rem;
-  background-color: var(--resume-accent-bg);
+  padding: 0.15rem 0.5rem;
+  background-color: var(--resume-accent-bg, #f1f5f9);
   color: var(--resume-text-body);
-  border: 1px solid var(--resume-border-secondary);
-  border-radius: 4px;
+  border: 1px solid var(--resume-border-secondary, #e2e8f0);
+  border-radius: 3px;
   /* Prevent mid-word breaks on skill tags */
   white-space: nowrap;
+  display: inline-block;
+  line-height: 1.4;
 }
 
 /* Link pill - styled clickable link with icon support */

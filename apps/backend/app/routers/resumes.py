@@ -285,11 +285,12 @@ def _preserve_original_skills(
     original_data: dict[str, Any] | None,
     improved_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """Restore any skills, certs, languages, or awards dropped by the LLM.
+    """Restore any certifications, languages, and awards dropped by the LLM.
 
-    This is a hard safety net: regardless of what the LLM returns, no
-    original item from these lists is ever lost.  Dropped items are
-    appended at the end of the improved list.
+    NOTE: technicalSkills are intentionally NOT restored here — the diff prompt
+    is instructed to trim irrelevant skills for the specific JD, so we allow
+    that trimming. We only protect non-skill items (certs, languages, awards)
+    which should never be removed.
     """
     if not original_data:
         return improved_data
@@ -301,8 +302,8 @@ def _preserve_original_skills(
         return result
     result_additional = result.setdefault("additional", {})
 
+    # Only protect non-skill lists — NOT technicalSkills (those get trimmed intentionally)
     list_fields = [
-        "technicalSkills",
         "certificationsTraining",
         "languages",
         "awards",
@@ -315,12 +316,10 @@ def _preserve_original_skills(
         if not isinstance(current_items, list):
             current_items = []
 
-        # Build a case-insensitive index of what the LLM kept
         current_lower = {
             item.casefold() for item in current_items if isinstance(item, str)
         }
 
-        # Append any originals that were dropped
         restored = 0
         for item in orig_items:
             if isinstance(item, str) and item.casefold() not in current_lower:

@@ -156,28 +156,28 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
         name_color = "white"
         section_color = accent
         section_border = f"border-bottom: 2px solid {accent};"
-        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
+        font_family = "'Inter', 'Helvetica Neue', Arial, sans-serif"
     elif template == "latex":
         accent = "#000000"
         header_style = ""
         name_color = "#000"
         section_color = "#000"
         section_border = "border-bottom: 1px solid #000;"
-        font_family = "'Liberation Serif', Georgia, 'Times New Roman', serif"
+        font_family = "'EB Garamond', Georgia, 'Times New Roman', serif"
     elif template == "clean":
         accent = "#374151"
         header_style = ""
         name_color = "#111"
         section_color = "#374151"
         section_border = "border-bottom: 1px solid #d1d5db;"
-        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
+        font_family = "'Inter', 'Helvetica Neue', Arial, sans-serif"
     elif template == "vivid":
         accent = "#7c3aed"
         header_style = f"border-left: 5px solid {accent}; padding-left: 10px; margin-bottom: 10px;"
         name_color = accent
         section_color = accent
         section_border = f"border-bottom: 2px solid {accent};"
-        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
+        font_family = "'Inter', 'Helvetica Neue', Arial, sans-serif"
     else:
         # swiss-single (default) - classic ATS
         accent = "#1e40af"
@@ -185,7 +185,7 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
         name_color = "#111827"
         section_color = "#1e40af"
         section_border = "border-bottom: 1.5px solid #1e40af;"
-        font_family = "'Liberation Sans', Arial, Helvetica, sans-serif"
+        font_family = "'Inter', 'Helvetica Neue', Arial, sans-serif"
 
     page_w = "210mm" if page_size == "A4" else "215.9mm"
     page_h = "297mm" if page_size == "A4" else "279.4mm"
@@ -346,7 +346,13 @@ def _build_resume_html(data: dict, template: str, page_size: str, margins: dict)
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<style>{css}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+* {{ -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }}
+{css}
+</style>
 </head>
 <body>
 {header_html}
@@ -387,15 +393,20 @@ async def render_resume_pdf(
         try:
             await init_pdf_renderer()
             if _browser_instance:
-                page = await _browser_instance.new_page()
+                # device_scale_factor=2 = Retina/HiDPI — crisp, sharp text in PDF output
+                context = await _browser_instance.new_context(
+                    viewport={"width": 1200, "height": 1697},
+                    device_scale_factor=2,
+                )
+                page = await context.new_page()
                 try:
                     logger.info(f"Playwright: navigating to frontend print URL template={template} max_pages={max_pages}")
                     await page.goto(url, wait_until="networkidle", timeout=_NAV_TIMEOUT_MS)
                     
                     # Wait for fonts to load (Google Fonts + system fonts)
                     try:
-                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=10_000)
-                        await page.wait_for_timeout(500)
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
+                        await page.wait_for_timeout(1000)
                     except Exception as e:
                         logger.warning(f"Font wait failed: {e}")
                     
@@ -428,6 +439,7 @@ async def render_resume_pdf(
                     return pdf_bytes
                 finally:
                     await page.close()
+                    await context.close()
         except Exception as e:
             logger.warning(f"Playwright frontend render failed: {e}, falling back to HTML builder")
 
@@ -439,13 +451,17 @@ async def render_resume_pdf(
         try:
             await init_pdf_renderer()
             if _browser_instance:
-                page = await _browser_instance.new_page()
+                context = await _browser_instance.new_context(
+                    viewport={"width": 1200, "height": 1697},
+                    device_scale_factor=2,
+                )
+                page = await context.new_page()
                 try:
                     logger.info(f"Playwright fallback: rendering built HTML template={template}")
                     await page.set_content(html, wait_until="domcontentloaded", timeout=_NAV_TIMEOUT_MS)
                     try:
-                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=10_000)
-                        await page.wait_for_timeout(300)
+                        await page.wait_for_function("() => document.fonts.ready.then(() => true)", timeout=15_000)
+                        await page.wait_for_timeout(1000)
                     except Exception as e:
                         logger.warning(f"Font wait failed in fallback: {e}")
 
@@ -467,6 +483,7 @@ async def render_resume_pdf(
                     return pdf_bytes
                 finally:
                     await page.close()
+                    await context.close()
         except Exception as e:
             logger.warning(f"Playwright HTML render failed: {e}, using fpdf2")
 

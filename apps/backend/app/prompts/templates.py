@@ -208,7 +208,7 @@ CRITICAL_TRUTHFULNESS_RULES_TEMPLATE = """CRITICAL TRUTHFULNESS RULES - NEVER VI
 6. DO NOT extend employment dates or change timelines. Copy date ranges exactly as they appear, including months.
 7. {rule_7}
 8. Preserve factual accuracy - only use information provided by the candidate
-9. NEVER remove existing skills, certifications, languages, or awards. You may reorder by relevance, but every original item must remain.
+9. For technicalSkills: reorder so JD-relevant skills appear FIRST. Remove skills that are completely irrelevant to this specific JD (e.g., remove "SAP NetWeaver" for a Python developer role). Keep the top 15-20 most relevant skills. DO NOT remove certifications, languages, or awards — only trim technicalSkills.
 
 Violation of these rules could cause serious problems for the candidate in job interviews.
 """
@@ -510,7 +510,7 @@ PATHS you can target:
 - "personalProjects[i].description[j]" — a specific project bullet
 - "personalProjects[i].description" — append a new project bullet (action: "append")
 - "education[i].description" — the education entry's description text (replace only; it is a single string, not a list)
-- "additional.technicalSkills" — reorder the skills list (action: "reorder") or add one verified skill (action: "add_skill")
+- "additional.technicalSkills" — reorder skills by relevance (action: "reorder"). When reordering, TRIM the list to the 15 most JD-relevant skills. Remove skills with zero relevance to this specific role (e.g., remove "SAP NetWeaver" for a Python role, remove "Phishing Detection" for a backend role). Keep core/foundation skills even if not in JD. The value array must contain ONLY the kept skills in relevance order.
 - "additional.languages" — reorder the languages list (action: "reorder")
 - "additional.certificationsTraining" — reorder the certifications list (action: "reorder")
 - "additional.awards" — reorder the awards list (action: "reorder")
@@ -550,8 +550,8 @@ Output this exact JSON format, nothing else:
       "path": "additional.technicalSkills",
       "action": "reorder",
       "original": null,
-      "value": ["most relevant skill first", "then next", "..."],
-      "reason": "reordered to prioritize JD-relevant skills"
+      "value": ["Python", "FastAPI", "PostgreSQL", "REST APIs", "Docker", "JavaScript", "Git", "SQL", "Linux", "Flask"],
+      "reason": "trimmed to top 10 JD-relevant skills, removed irrelevant security/SAP skills"
     }},
     {{
       "path": "additional.technicalSkills",

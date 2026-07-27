@@ -114,19 +114,9 @@ async function postImprove(
 ): Promise<ImprovedResult> {
   let response: Response;
   try {
-    // Route improve calls through /improve-proxy (a Next.js serverless function
-    // with 60s maxDuration). Uses a dedicated named route — no brackets, no
-    // path conflict with /api/:path* rewrite. The endpoint is passed as a
-    // query param so preview/confirm/improve all share the same route.
-    const endpointParam = endpoint.replace(/^\/resumes\//, '').replace(/^resumes\//, '');
-    const proxyEndpoint = `/improve-proxy?endpoint=resumes/${endpointParam}`;
-
-    response = await fetch(proxyEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
-    });
+    // Direct API call — model is fast enough (~8-15s) to complete within
+    // Vercel's rewrite proxy timeout. No special proxy needed.
+    response = await apiPost(endpoint, payload, DEFAULT_TIMEOUT_MS);
   } catch (networkError) {
     console.error(`Network error during ${endpoint}:`, networkError);
     throw networkError;

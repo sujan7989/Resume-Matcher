@@ -12,13 +12,13 @@ services:
       - key: LLM_PROVIDER
         value: nvidia
       - key: LLM_MODEL
-        value: stepfun-ai/step-3.5-flash
+        value: meta/llama-3.1-8b-instruct
       - key: FRONTEND_BASE_URL
-        value: https://resume-matcher.vercel.app
+        value: https://resume-matcher-zeta.vercel.app
       - key: CORS_ORIGINS
-        value: '["https://resume-matcher.vercel.app","https://resume-matcher-git-main-sujan7989.vercel.app","https://resume-matcher-sujan7989.vercel.app","http://localhost:3000"]'
+        value: '["https://resume-matcher-zeta.vercel.app","https://resume-matcher.vercel.app","http://localhost:3000"]'
       - key: LOG_LEVEL
         value: INFO
       - key: REQUEST_TIMEOUT_SECONDS
-        value: "300"
+        value: "60"
       # LLM_API_KEY and DATABASE_URL must be set in the Render dashboard (not here)

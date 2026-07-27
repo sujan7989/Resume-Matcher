@@ -2,6 +2,7 @@
  * Centralized API Client
  *
  * Single source of truth for API configuration and base fetch utilities.
+ * Build: 2026-07-28 — direct API calls, meta/llama-3.1-8b-instruct
  */
 
 const DEFAULT_PUBLIC_API_URL = '/';

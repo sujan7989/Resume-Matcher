@@ -282,65 +282,44 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
   };
 
+  // Build inline @page CSS with the correct page dimensions
+  const pageCSS = `
+    *, *::before, *::after {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      box-sizing: border-box;
+    }
+    @page {
+      size: ${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};
+      margin: ${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      background: white;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .resume-print { width: 100%; background: white; display: block; }
+    .resume-section:last-child { margin-bottom: 0; padding-bottom: 0; }
+    .resume-item:last-child { margin-bottom: 0; }
+  `;
+
   return (
-    <>
-      <head>
-        {/* Load web fonts so Playwright PDF output matches the browser preview exactly */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
-          rel="stylesheet"
-        />
-        {/* Print-specific CSS to ensure perfect rendering */}
-        <style>{`
-          /* Force font-smoothing and crisp rendering for PDF output */
-          *, *::before, *::after {
-            -webkit-font-smoothing: antialiased !important;
-            -moz-osx-font-smoothing: grayscale !important;
-            text-rendering: optimizeLegibility !important;
-            box-sizing: border-box;
-          }
-          @page {
-            size: ${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};
-            margin: ${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm;
-          }
-          html, body {
-            margin: 0 !important;
-            padding: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-          .resume-print {
-            width: 100%;
-            background: white;
-            display: block;
-          }
-          /* Remove all bottom padding/margin from last section to prevent whitespace */
-          .resume-section:last-child {
-            margin-bottom: 0 !important;
-            padding-bottom: 0 !important;
-          }
-          .resume-item:last-child {
-            margin-bottom: 0 !important;
-          }
-          .resume-items:last-child {
-            padding-bottom: 0 !important;
-          }
-        `}</style>
-      </head>
-      <div className="resume-print bg-white">
-        <Resume
-          resumeData={localizedResumeData}
-          template={settings.template}
-          settings={printSettings}
-          additionalSectionLabels={additionalSectionLabels}
-          sectionHeadings={sectionHeadings}
-          fallbackLabels={fallbackLabels}
-        />
-      </div>
-    </>
+    <div className="resume-print bg-white">
+      {/* Inline styles for PDF page dimensions - must use dangerouslySetInnerHTML
+          to inject @page rule since Next.js App Router doesn't allow raw <head> in pages */}
+      <style dangerouslySetInnerHTML={{ __html: pageCSS }} />
+      <Resume
+        resumeData={localizedResumeData}
+        template={settings.template}
+        settings={printSettings}
+        additionalSectionLabels={additionalSectionLabels}
+        sectionHeadings={sectionHeadings}
+        fallbackLabels={fallbackLabels}
+      />
+    </div>
   );
 }

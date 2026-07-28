@@ -1,9 +1,9 @@
-import '@/app/(default)/css/globals.css';
-
+/**
+ * Print layout — intentionally minimal.
+ * The root app/layout.tsx already wraps everything in <html><body>.
+ * We must NOT add another <html> or <body> here — nested html tags
+ * cause React hydration errors and Next.js 500s.
+ */
 export default function PrintLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <body className="bg-white m-0 p-0">{children}</body>
-    </html>
-  );
+  return <>{children}</>;
 }

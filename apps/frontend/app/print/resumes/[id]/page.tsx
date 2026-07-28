@@ -18,7 +18,6 @@ import { withLocalizedDefaultSections } from '@/lib/utils/section-helpers';
 // other client-side dependencies in the Resume component tree
 const Resume = dynamic(() => import('@/components/dashboard/resume-component'), {
   ssr: false,
-  loading: () => <div style={{ background: 'white', minHeight: '297mm' }} />,
 });
 
 type PageProps = {

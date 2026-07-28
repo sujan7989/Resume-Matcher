@@ -39,39 +39,21 @@ type PageProps = {
   }>;
 };
 
-/**
- * Parse header font family
- */
 function parseHeaderFont(value: string | undefined): HeaderFontFamily {
-  if (value === 'serif' || value === 'sans-serif' || value === 'mono') {
-    return value;
-  }
+  if (value === 'serif' || value === 'sans-serif' || value === 'mono') return value;
   return DEFAULT_TEMPLATE_SETTINGS.fontSize.headerFont;
 }
 
-/**
- * Parse body font family
- */
 function parseBodyFont(value: string | undefined): BodyFontFamily {
-  if (value === 'serif' || value === 'sans-serif' || value === 'mono') {
-    return value;
-  }
+  if (value === 'serif' || value === 'sans-serif' || value === 'mono') return value;
   return DEFAULT_TEMPLATE_SETTINGS.fontSize.bodyFont;
 }
 
-/**
- * Parse accent color
- */
 function parseAccentColor(value: string | undefined): AccentColor {
-  if (value === 'blue' || value === 'green' || value === 'orange' || value === 'red') {
-    return value;
-  }
+  if (value === 'blue' || value === 'green' || value === 'orange' || value === 'red') return value;
   return DEFAULT_TEMPLATE_SETTINGS.accentColor;
 }
 
-/**
- * Parse font weight, clamped to valid values
- */
 function parseFontWeight(
   value: string | undefined,
   defaultValue: number
@@ -83,9 +65,6 @@ function parseFontWeight(
   return num as 300 | 400 | 500 | 600 | 700;
 }
 
-/**
- * Parse boolean from string
- */
 function parseBoolean(value: string | undefined, defaultValue: boolean): boolean {
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -93,12 +72,11 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 }
 
 async function fetchResumeData(id: string): Promise<ResumeData> {
-  // SSR context: must use Render backend URL directly, not localhost
   const backendUrl = process.env.BACKEND_ORIGIN || 'https://resume-matcher-6kv2.onrender.com';
   try {
     const res = await fetch(`${backendUrl}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(20000), // 20s timeout for SSR fetch
+      signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) {
       console.error(`Print page: resume fetch failed (status ${res.status}) for id=${id}`);
@@ -107,18 +85,11 @@ async function fetchResumeData(id: string): Promise<ResumeData> {
     const payload = (await res.json()) as {
       data: { processed_resume?: ResumeData; raw_resume?: { content?: string } };
     };
-    if (payload.data.processed_resume) {
-      return payload.data.processed_resume;
-    }
+    if (payload.data.processed_resume) return payload.data.processed_resume;
     if (payload.data.raw_resume?.content) {
       try {
         return JSON.parse(payload.data.raw_resume.content) as ResumeData;
-      } catch (error) {
-        console.error('Failed to parse resume JSON:', {
-          resumeId: id,
-          error: error instanceof Error ? error.message : 'Unknown error',
-          contentLength: payload.data.raw_resume.content.length,
-        });
+      } catch {
         return {} as ResumeData;
       }
     }
@@ -129,9 +100,6 @@ async function fetchResumeData(id: string): Promise<ResumeData> {
   }
 }
 
-/**
- * Parse spacing level from string, clamped to valid range 1-5
- */
 function parseSpacingLevel(value: string | undefined, defaultValue: SpacingLevel): SpacingLevel {
   if (!value) return defaultValue;
   const num = parseInt(value, 10);
@@ -139,9 +107,6 @@ function parseSpacingLevel(value: string | undefined, defaultValue: SpacingLevel
   return num as SpacingLevel;
 }
 
-/**
- * Parse margin value from string, clamped to valid range 5-25
- */
 function parseMargin(value: string | undefined, defaultValue: number): number {
   if (!value) return defaultValue;
   const num = parseInt(value, 10);
@@ -149,11 +114,7 @@ function parseMargin(value: string | undefined, defaultValue: number): number {
   return Math.max(5, Math.min(25, num));
 }
 
-/**
- * Validate template type
- */
 function parseTemplate(value: string | undefined): TemplateType {
-  // Allow-list mirrors TEMPLATE_OPTIONS in lib/types/template-settings.ts — keep in sync.
   if (
     value === 'swiss-single' ||
     value === 'swiss-two-column' ||
@@ -173,13 +134,8 @@ function parseTemplate(value: string | undefined): TemplateType {
   return 'swiss-single';
 }
 
-/**
- * Validate page size
- */
 function parsePageSize(value: string | undefined): PageSize {
-  if (value === 'A4' || value === 'LETTER') {
-    return value;
-  }
+  if (value === 'A4' || value === 'LETTER') return value;
   return 'A4';
 }
 
@@ -188,9 +144,9 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const resumeData = await fetchResumeData(resolvedParams.id);
   const locale = resolveLocale(resolvedSearchParams?.lang);
-  const t = (key: string, params?: Record<string, string | number>) =>
-    translate(locale, key, params);
+  const t = (key: string, p?: Record<string, string | number>) => translate(locale, key, p);
   const localizedResumeData = withLocalizedDefaultSections(resumeData, t);
+
   const additionalSectionLabels = {
     technicalSkills: t('resume.additionalLabels.technicalSkills'),
     languages: t('resume.additionalLabels.languages'),
@@ -208,109 +164,55 @@ export default async function PrintResumePage({ params, searchParams }: PageProp
     awards: t('resume.sections.awards'),
     links: t('resume.sections.links'),
   };
-  const fallbackLabels = {
-    name: t('resume.defaults.name'),
-  };
+  const fallbackLabels = { name: t('resume.defaults.name') };
 
-  // Parse template settings from query params
   const settings: TemplateSettings = {
     template: parseTemplate(resolvedSearchParams?.template),
     pageSize: parsePageSize(resolvedSearchParams?.pageSize),
     margins: {
       top: parseMargin(resolvedSearchParams?.marginTop, DEFAULT_TEMPLATE_SETTINGS.margins.top),
-      bottom: parseMargin(
-        resolvedSearchParams?.marginBottom,
-        DEFAULT_TEMPLATE_SETTINGS.margins.bottom
-      ),
+      bottom: parseMargin(resolvedSearchParams?.marginBottom, DEFAULT_TEMPLATE_SETTINGS.margins.bottom),
       left: parseMargin(resolvedSearchParams?.marginLeft, DEFAULT_TEMPLATE_SETTINGS.margins.left),
-      right: parseMargin(
-        resolvedSearchParams?.marginRight,
-        DEFAULT_TEMPLATE_SETTINGS.margins.right
-      ),
+      right: parseMargin(resolvedSearchParams?.marginRight, DEFAULT_TEMPLATE_SETTINGS.margins.right),
     },
     spacing: {
-      section: parseSpacingLevel(
-        resolvedSearchParams?.sectionSpacing,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.section
-      ),
-      item: parseSpacingLevel(
-        resolvedSearchParams?.itemSpacing,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.item
-      ),
-      lineHeight: parseSpacingLevel(
-        resolvedSearchParams?.lineHeight,
-        DEFAULT_TEMPLATE_SETTINGS.spacing.lineHeight
-      ),
+      section: parseSpacingLevel(resolvedSearchParams?.sectionSpacing, DEFAULT_TEMPLATE_SETTINGS.spacing.section),
+      item: parseSpacingLevel(resolvedSearchParams?.itemSpacing, DEFAULT_TEMPLATE_SETTINGS.spacing.item),
+      lineHeight: parseSpacingLevel(resolvedSearchParams?.lineHeight, DEFAULT_TEMPLATE_SETTINGS.spacing.lineHeight),
     },
     fontSize: {
-      base: parseSpacingLevel(
-        resolvedSearchParams?.fontSize,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.base
-      ),
-      headerScale: parseSpacingLevel(
-        resolvedSearchParams?.headerScale,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.headerScale
-      ),
+      base: parseSpacingLevel(resolvedSearchParams?.fontSize, DEFAULT_TEMPLATE_SETTINGS.fontSize.base),
+      headerScale: parseSpacingLevel(resolvedSearchParams?.headerScale, DEFAULT_TEMPLATE_SETTINGS.fontSize.headerScale),
       headerFont: parseHeaderFont(resolvedSearchParams?.headerFont),
       bodyFont: parseBodyFont(resolvedSearchParams?.bodyFont),
-      headerWeight: parseFontWeight(
-        resolvedSearchParams?.headerWeight,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.headerWeight
-      ),
-      bodyWeight: parseFontWeight(
-        resolvedSearchParams?.bodyWeight,
-        DEFAULT_TEMPLATE_SETTINGS.fontSize.bodyWeight
-      ),
+      headerWeight: parseFontWeight(resolvedSearchParams?.headerWeight, DEFAULT_TEMPLATE_SETTINGS.fontSize.headerWeight),
+      bodyWeight: parseFontWeight(resolvedSearchParams?.bodyWeight, DEFAULT_TEMPLATE_SETTINGS.fontSize.bodyWeight),
     },
-    compactMode: parseBoolean(
-      resolvedSearchParams?.compactMode,
-      DEFAULT_TEMPLATE_SETTINGS.compactMode
-    ),
-    showContactIcons: parseBoolean(
-      resolvedSearchParams?.showContactIcons,
-      DEFAULT_TEMPLATE_SETTINGS.showContactIcons
-    ),
+    compactMode: parseBoolean(resolvedSearchParams?.compactMode, DEFAULT_TEMPLATE_SETTINGS.compactMode),
+    showContactIcons: parseBoolean(resolvedSearchParams?.showContactIcons, DEFAULT_TEMPLATE_SETTINGS.showContactIcons),
     accentColor: parseAccentColor(resolvedSearchParams?.accentColor),
     maxPages: (resolvedSearchParams?.maxPages === '2' ? 2 : 1) as 1 | 2,
   };
 
-  // Note: Margins are applied via @page CSS rule above so every page gets them
-  // The Resume component gets zero margins so content fills to the @page margins
+  // Zero out margins in CSS — @page rule handles them per-page
   const printSettings: TemplateSettings = {
     ...settings,
-    // Zero out margins in CSS since @page rule handles them per-page
     margins: { top: 0, bottom: 0, left: 0, right: 0 },
   };
 
-  // Build inline @page CSS with the correct page dimensions
+  // Inject @page CSS via dangerouslySetInnerHTML — raw <head> inside a
+  // page component is invalid in Next.js App Router and causes a 500 crash.
   const pageCSS = `
-    *, *::before, *::after {
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-      box-sizing: border-box;
-    }
-    @page {
-      size: ${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};
-      margin: ${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm;
-    }
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      background: white;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .resume-print { width: 100%; background: white; display: block; }
-    .resume-section:last-child { margin-bottom: 0; padding-bottom: 0; }
-    .resume-item:last-child { margin-bottom: 0; }
+    *,*::before,*::after{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;box-sizing:border-box}
+    @page{size:${settings.pageSize === 'A4' ? '210mm 297mm' : '215.9mm 279.4mm'};margin:${settings.margins.top}mm ${settings.margins.right}mm ${settings.margins.bottom}mm ${settings.margins.left}mm}
+    html,body{margin:0;padding:0;width:100%;background:white;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .resume-print{width:100%;background:white;display:block}
+    .resume-section:last-child{margin-bottom:0;padding-bottom:0}
+    .resume-item:last-child{margin-bottom:0}
   `;
 
   return (
     <div className="resume-print bg-white">
-      {/* Inline styles for PDF page dimensions - must use dangerouslySetInnerHTML
-          to inject @page rule since Next.js App Router doesn't allow raw <head> in pages */}
       <style dangerouslySetInnerHTML={{ __html: pageCSS }} />
       <Resume
         resumeData={localizedResumeData}

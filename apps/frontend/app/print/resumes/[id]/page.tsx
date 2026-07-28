@@ -96,33 +96,38 @@ function parseBoolean(value: string | undefined, defaultValue: boolean): boolean
 async function fetchResumeData(id: string): Promise<ResumeData> {
   // SSR context: must use Render backend URL directly, not localhost
   const backendUrl = process.env.BACKEND_ORIGIN || 'https://resume-matcher-6kv2.onrender.com';
-  const res = await fetch(`${backendUrl}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`, {
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    throw new Error(`Failed to load resume (status ${res.status}).`);
-  }
-  const payload = (await res.json()) as {
-    data: { processed_resume?: ResumeData; raw_resume?: { content?: string } };
-  };
-  if (payload.data.processed_resume) {
-    return payload.data.processed_resume;
-  }
-  if (payload.data.raw_resume?.content) {
-    try {
-      return JSON.parse(payload.data.raw_resume.content) as ResumeData;
-    } catch (error) {
-      // Log error for debugging instead of silently failing
-      // Note: Avoid logging content preview to prevent PII exposure
-      console.error('Failed to parse resume JSON:', {
-        resumeId: id,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        contentLength: payload.data.raw_resume.content.length,
-      });
-      throw new Error('Failed to parse resume data. The resume content may be corrupted.');
+  try {
+    const res = await fetch(`${backendUrl}/api/v1/resumes?resume_id=${encodeURIComponent(id)}`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(20000), // 20s timeout for SSR fetch
+    });
+    if (!res.ok) {
+      console.error(`Print page: resume fetch failed (status ${res.status}) for id=${id}`);
+      return {} as ResumeData;
     }
+    const payload = (await res.json()) as {
+      data: { processed_resume?: ResumeData; raw_resume?: { content?: string } };
+    };
+    if (payload.data.processed_resume) {
+      return payload.data.processed_resume;
+    }
+    if (payload.data.raw_resume?.content) {
+      try {
+        return JSON.parse(payload.data.raw_resume.content) as ResumeData;
+      } catch (error) {
+        console.error('Failed to parse resume JSON:', {
+          resumeId: id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          contentLength: payload.data.raw_resume.content.length,
+        });
+        return {} as ResumeData;
+      }
+    }
+    return {} as ResumeData;
+  } catch (error) {
+    console.error('Print page: fetchResumeData error for id=' + id, error);
+    return {} as ResumeData;
   }
-  return {} as ResumeData;
 }
 
 /**

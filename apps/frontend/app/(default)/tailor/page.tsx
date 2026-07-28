@@ -155,7 +155,8 @@ export default function TailorPage() {
 
     const newResumeId = confirmed?.data?.resume_id;
     if (newResumeId) {
-      router.push(`/resumes/${newResumeId}`);
+      // Pass jobId via URL so the builder auto-runs ATS on the new tailored resume
+      router.push(`/resumes/${newResumeId}?autoAts=1&jobId=${result.data.job_id}`);
     } else {
       router.push('/builder');
     }

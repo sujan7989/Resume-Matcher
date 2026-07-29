@@ -141,3 +141,26 @@ config.json
 
 # Generated test files
 apps/frontend/tests/theme-provider.test.tsx
+
+# Removed: internal dev docs (not needed in production)
+docs/
+
+# Removed: marketing assets and binary preview files
+assets/
+
+# Removed: Oracle deployment scripts (project uses Supabase/PostgreSQL)
+oracle-setup.sh
+oracle-https-setup.sh
+ORACLE_DEPLOY_GUIDE.md
+oracle-env-template.env
+
+# Removed: AI tool configs
+.claude/
+.impeccable.md
+
+# Removed: deployment timestamp
+apps/backend/app/.deploy-ts
+
+# Temp/working files
+response.txt
+PROJECT_REVIEW_HANDOVER.md

@@ -715,14 +715,15 @@ const ResumeBuilderContent = () => {
   };
 
   // ATS Analysis handler — caches result per resume+job pair, but allows re-analyze
-  const handleAnalyzeATS = async (forceReanalyze = false) => {
-    if (!resumeId) return;
+  const handleAnalyzeATS = async (forceReanalyze = false, overrideResumeId?: string) => {
+    const effectiveResumeId = overrideResumeId || resumeId;
+    if (!effectiveResumeId) return;
 
     // If we have jobDescription but no jobId, save it as a job first
     let effectiveJobId = jobId;
     if (!effectiveJobId && jobDescription) {
       try {
-        const newJobId = await uploadJobDescriptions([jobDescription], resumeId);
+        const newJobId = await uploadJobDescriptions([jobDescription], effectiveResumeId);
         effectiveJobId = newJobId;
         setJobId(newJobId);
       } catch (e) {
@@ -734,7 +735,7 @@ const ResumeBuilderContent = () => {
 
     if (!effectiveJobId) return;
 
-    const cacheKey = `${resumeId}:${effectiveJobId}`;
+    const cacheKey = `${effectiveResumeId}:${effectiveJobId}`;
     if (!forceReanalyze && atsCacheKey === cacheKey && atsResult) {
       setJdRightView('ats');
       return;
@@ -746,9 +747,9 @@ const ResumeBuilderContent = () => {
     setJdRightView('ats');
     try {
       // Auto-save resume before re-analyzing so the backend sees the latest changes
-      if (hasUnsavedChanges) {
+      if (hasUnsavedChanges && !overrideResumeId) {
         try {
-          await updateResume(resumeId, resumeData);
+          await updateResume(effectiveResumeId, resumeData);
           setLastSavedData(resumeData);
           setHasUnsavedChanges(false);
         } catch (saveErr) {
@@ -758,7 +759,7 @@ const ResumeBuilderContent = () => {
           );
         }
       }
-      const result = await analyzeATSMatch(resumeId, effectiveJobId);
+      const result = await analyzeATSMatch(effectiveResumeId, effectiveJobId);
       setAtsResult(result);
       setAtsCacheKey(cacheKey);
       // Store baseline score on first analysis; on re-analyze show comparison
@@ -861,9 +862,10 @@ const ResumeBuilderContent = () => {
       // Store the preview result (which has warnings + refinement_stats) for the summary modal
       setOptimizeSummaryResult(optimizePreviewResult);
       setOptimizePreviewResult(null);
-      // Auto re-analyze with the new resume — summary modal opens after score is known
+      // Auto re-analyze with the NEW tailored resume ID so before/after score is accurate
+      // Using targetId (not original resumeId) ensures ATS sees the tailored content
       setTimeout(() => {
-        handleAnalyzeATS(true);
+        handleAnalyzeATS(true, targetId);
         setShowOptimizeSummary(true);
       }, 600);
     } catch (err) {

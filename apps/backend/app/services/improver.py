@@ -277,7 +277,10 @@ def apply_diffs(
 
         if action == "replace":
             # Gate 4: Original text must match what's actually there
-            if not _verify_original_matches(actual_value, change.original):
+            # Exception: for the "summary" path, skip strict matching since the LLM
+            # often truncates long summaries in the original field. The summary path
+            # is always a single string so false positives are impossible.
+            if path != "summary" and not _verify_original_matches(actual_value, change.original):
                 logger.info(
                     "Diff rejected (original mismatch): path=%s expected=%r actual=%r",
                     path,

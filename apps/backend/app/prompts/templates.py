@@ -525,7 +525,7 @@ RULES:
 12. Preserve original capitalization, especially for proper nouns, technical terms (e.g., REST, API, AWS), and acronyms. Do not change the casing of words that were capitalized in the original.
 
 PATHS you can target:
-- "summary" — the resume summary text
+- "summary" — the resume summary text (for replace action, you MAY set "original": null since the summary is always replaced entirely)
 - "workExperience[i].description[j]" — a specific bullet (i = entry index, j = bullet index)
 - "workExperience[i].description" — append a new bullet (action: "append")
 - "personalProjects[i].description[j]" — a specific project bullet

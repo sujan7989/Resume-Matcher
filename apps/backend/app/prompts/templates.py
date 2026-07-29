@@ -265,11 +265,32 @@ IMPROVE_RESUME_PROMPT_KEYWORDS = """Enhance this resume with JD keywords. Output
 IMPORTANT: Generate ALL text content in {output_language}.
 Do NOT include personalInfo in your output.
 
-WHAT "KEYWORD ENHANCE" MEANS — execute ALL steps:
-1. SUMMARY: Rewrite to include 3-5 exact keywords from the JD that the resume already supports. Mention the target role or domain explicitly.
-2. TECHNICAL SKILLS: Reorder technicalSkills so JD-matching skills appear FIRST. Do not add new skills not in the resume.
-3. EXPERIENCE: Reorder workExperience so the most JD-relevant role appears first. Rephrase existing bullets using JD terminology where the resume already demonstrates that skill.
-4. PROJECTS: Reorder personalProjects so the most JD-relevant projects appear first. Rephrase project bullets to surface JD keyword matches.
+WHAT "KEYWORD ENHANCE" MEANS — execute ALL steps in order:
+1. SUMMARY: Completely rewrite the summary to target this specific role.
+   - Open with the candidate's most relevant skill/title matching the JD
+   - Include 4-6 exact keywords from the JD that the resume already supports
+   - Connect the candidate's background directly to the role's needs
+   - Make it sound like a professional who is perfect for this role
+   - 2-3 sentences maximum
+
+2. TECHNICAL SKILLS: Restructure the skills section:
+   - Move JD-critical skills to the FRONT of the list
+   - Keep top 12-15 most relevant skills only
+   - Remove skills with zero relevance to this specific JD
+   - Keep foundation/transferable skills even if not in JD
+
+3. EXPERIENCE: For EVERY work experience entry:
+   - Reorder so most JD-relevant role appears first
+   - For EACH bullet that relates to a JD requirement: rewrite using the EXACT terminology from the JD
+   - Strengthen weak bullets: if the bullet describes something relevant but vaguely, make it more specific
+   - Add quantification ONLY if the original already has numbers/metrics to work with
+   - Do NOT add new bullet points
+
+4. PROJECTS: For EVERY project:
+   - Reorder by JD relevance
+   - Rewrite each project description to use JD technology names where the project already uses them
+   - Make sure the tech stack in project descriptions matches JD terminology exactly
+
 5. Do NOT add new bullet points, new skills, or fabricate metrics.
 6. Keep all dates, company names, institutions exactly as in the original.
 7. Do NOT use em dash anywhere.
@@ -413,8 +434,8 @@ RESUME_SCHEMA = RESUME_SCHEMA_EXAMPLE
 
 DIFF_STRATEGY_INSTRUCTIONS = {
     "nudge": "Rephrase existing content only using JD terminology. Do not add new bullet points, skills, or sections. Touch minimum words.",
-    "keywords": "Rewrite summary with JD keywords, reorder skills/projects/experience by relevance, rephrase bullets using JD language. Do not add new bullets.",
-    "full": "Rewrite summary entirely for the role, reorder all sections by relevance, rephrase all matching bullets using JD language, add 1 new bullet per role to expand existing work only.",
+    "keywords": "Completely rewrite the summary targeting this role, reorder and trim skills keeping only JD-relevant ones, rewrite ALL experience/project bullets that relate to JD requirements using the JD's exact terminology, reorder sections by relevance.",
+    "full": "Completely rewrite the summary for the role, reorder all sections by relevance, rewrite every relevant bullet using JD language, add 1 new bullet per role to expand existing work only, trim irrelevant skills.",
 }
 
 SKILL_TARGET_PLAN_PROMPT = """Build a concise skill target plan for tailoring this resume to the job.
@@ -516,6 +537,17 @@ PATHS you can target:
 - "additional.awards" — reorder the awards list (action: "reorder")
 
 Do NOT target: personalInfo, dates/years, company names, education degree/institution/years, customSections.
+
+REWRITING QUALITY RULES — these make the difference between keyword stuffing and true tailoring:
+For "summary": COMPLETELY rewrite it. Target this specific role/company. Open with the candidate's most relevant title/skill.
+  Include 4-6 exact JD keywords the resume supports. Sound like a professional built for this role.
+For experience/project bullets: When a bullet relates to a JD requirement, rewrite it using the JD's EXACT terminology.
+  BAD: "Tested web applications" + JD wants "QA testing, test automation"
+  GOOD: "Performed QA testing and developed test automation scripts for web applications"
+  BAD: "Built backend services" + JD wants "REST APIs, microservices"
+  GOOD: "Developed REST API microservices handling authentication and data processing"
+Generate at minimum: 1 summary rewrite + technicalSkills reorder + 3-5 experience/project bullet rewrites.
+If the resume has relevant experience, ensure the score-impacting sections get substantive rewrites.
 
 Keywords to emphasize (only if already supported by resume content):
 {job_keywords}

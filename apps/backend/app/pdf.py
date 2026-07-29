@@ -411,17 +411,27 @@ async def render_resume_pdf(
                     except Exception as e:
                         logger.warning(f"Font wait failed: {e}")
                     
-                    # Wait for resume content to render
+                    # Wait for the resume component to actually render client-side
+                    # The print page uses lazy import so the Resume renders after hydration
                     try:
-                        await page.wait_for_selector(selector, timeout=10_000)
+                        await page.wait_for_selector(".resume-print", timeout=20_000)
+                        # Wait a bit more for the resume data to load and render
+                        await page.wait_for_timeout(2000)
                     except Exception:
-                        logger.warning(f"Selector '{selector}' not found, proceeding with whatever is on the page")
+                        logger.warning("resume-print selector not found after 20s — falling back")
+                        raise Exception("Resume content did not render on print page")
 
                     # Check if page loaded correctly — error pages return empty/error content
                     page_content = await page.content()
                     if any(x in page_content.lower() for x in ["couldn't load", "couldn&#x2019;t load", "server error occurred", "reload to try", "page couldn"]):
                         logger.warning("Print page returned error content, falling back to HTML builder")
                         raise Exception("Print page returned error — frontend unreachable")
+
+                    # Hard check: verify this is actually the resume print page
+                    # If FRONTEND_BASE_URL is wrong, Playwright may render the wrong app entirely
+                    if ".resume-print" not in page_content and "resume-print" not in page_content:
+                        logger.warning("Print page does not contain resume-print class — wrong page rendered")
+                        raise Exception("Print page does not contain resume content — check FRONTEND_BASE_URL")
 
                     # Check page has actual resume content (not blank)
                     if len(page_content) < 2000:

@@ -567,6 +567,61 @@ def verify_diff_result(
     return warnings
 
 
+def _compress_resume_for_diff(data: dict[str, Any]) -> str:
+    """Return a minimal JSON representation of the resume for diff generation.
+
+    Keeps only the fields the LLM needs to generate targeted diffs:
+    - summary (to rewrite)
+    - workExperience[].description bullets (to rewrite)
+    - personalProjects[].name + description (to rewrite bullets)
+    - additional.technicalSkills (to reorder)
+
+    Strips: personalInfo, education, sectionMeta, customSections,
+    languages, certificationsTraining, awards — these save 40-50%
+    of input tokens and the LLM doesn't need them for diff generation.
+    """
+    compressed: dict[str, Any] = {}
+
+    # Summary
+    compressed["summary"] = data.get("summary", "")
+
+    # Work experience — only description bullets + index context
+    work = data.get("workExperience", [])
+    if isinstance(work, list):
+        compressed["workExperience"] = [
+            {
+                "title": e.get("title", ""),
+                "company": e.get("company", ""),
+                "years": e.get("years", ""),
+                "description": e.get("description", []),
+            }
+            for e in work
+            if isinstance(e, dict)
+        ]
+
+    # Projects — name + description bullets
+    projects = data.get("personalProjects", [])
+    if isinstance(projects, list):
+        compressed["personalProjects"] = [
+            {
+                "name": p.get("name", ""),
+                "role": p.get("role", ""),
+                "description": p.get("description", []),
+            }
+            for p in projects
+            if isinstance(p, dict)
+        ]
+
+    # Skills only (not certs/languages/awards — those aren't rewritten)
+    additional = data.get("additional", {})
+    if isinstance(additional, dict):
+        compressed["additional"] = {
+            "technicalSkills": additional.get("technicalSkills", []),
+        }
+
+    return json.dumps(compressed, ensure_ascii=False, separators=(",", ":"))
+
+
 async def generate_resume_diffs(
     original_resume: str,
     job_description: str,
@@ -609,12 +664,10 @@ async def generate_resume_diffs(
     # LLM-011: Sanitize job description
     sanitized_jd = _sanitize_user_input(job_description)
 
-    # Use structured JSON if available with month precision, else markdown
+    # Use structured JSON if available, compressed to only diff-relevant fields
+    # This saves ~40-50% of input tokens so the 8B model has room for all output changes
     if original_resume_data is not None:
-        if _has_month_in_dates(original_resume_data):
-            resume_input = json.dumps(original_resume_data)
-        else:
-            resume_input = original_resume
+        resume_input = _compress_resume_for_diff(original_resume_data)
     else:
         resume_input = original_resume
 

@@ -242,6 +242,9 @@ const ResumeBuilderContent = () => {
   // Summary modal — shown after confirm + ATS re-analysis completes
   const [showOptimizeSummary, setShowOptimizeSummary] = useState(false);
   const [optimizeSummaryResult, setOptimizeSummaryResult] = useState<ImprovedResult | null>(null);
+  // Captures ATS score at the moment user clicks Optimize (before any changes)
+  // This is the true "before" score for the optimization summary modal.
+  const [optimizeBaselineScore, setOptimizeBaselineScore] = useState<number | null>(null);
 
   // Generate tailored project state — kept for suggestProject import usage
   const [isGeneratingProject] = useState(false);
@@ -762,11 +765,15 @@ const ResumeBuilderContent = () => {
       const result = await analyzeATSMatch(effectiveResumeId, effectiveJobId);
       setAtsResult(result);
       setAtsCacheKey(cacheKey);
-      // Store baseline score on first analysis; on re-analyze show comparison
-      if (atsBaselineScore === null) {
+      // Store baseline score on first analysis (no overrideResumeId means user-initiated)
+      // When called with overrideResumeId (post-optimization), it's the "after" score — don't overwrite baseline
+      if (atsBaselineScore === null && !overrideResumeId) {
         setAtsBaselineScore(result.ats_score.overall);
         setAtsBaselineResult(result);
         setShowScoreComparison(false);
+      } else if (overrideResumeId) {
+        // Post-optimization re-analysis: show comparison between original and tailored
+        setShowScoreComparison(true);
       } else {
         setShowScoreComparison(true);
       }
@@ -812,6 +819,22 @@ const ResumeBuilderContent = () => {
         setLastSavedData(resumeData);
         setHasUnsavedChanges(false);
       }
+
+      // Capture the "before" ATS score. If we don't have one yet, run analysis now
+      // so the optimization summary can show a meaningful before→after comparison.
+      let beforeScore = atsResult?.ats_score.overall ?? atsBaselineScore;
+      if (beforeScore === null) {
+        try {
+          const baselineResult = await analyzeATSMatch(resumeId, jobId);
+          setAtsResult(baselineResult);
+          setAtsBaselineScore(baselineResult.ats_score.overall);
+          setAtsBaselineResult(baselineResult);
+          beforeScore = baselineResult.ats_score.overall;
+        } catch {
+          // If baseline analysis fails, proceed anyway — summary will show null before
+        }
+      }
+      setOptimizeBaselineScore(beforeScore);
       const result = await previewImproveResume(resumeId, jobId, optimizePromptId);
       setOptimizePreviewResult(result);
       setShowOptimizeDiffModal(true);
@@ -1845,7 +1868,7 @@ const ResumeBuilderContent = () => {
               }
             : undefined
         }
-        beforeScore={atsBaselineScore}
+        beforeScore={optimizeBaselineScore}
         afterScore={atsResult?.ats_score.overall ?? null}
         diffSummary={optimizeSummaryResult?.data?.diff_summary}
         detailedChanges={optimizeSummaryResult?.data?.detailed_changes}

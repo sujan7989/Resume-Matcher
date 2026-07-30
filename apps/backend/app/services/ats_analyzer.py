@@ -46,8 +46,59 @@ def _safe_float(value, default: float = 0.0) -> float:
         return default
 
 
-def _parse_analysis(raw: dict, resume_id: str, job_id: str) -> ATSAnalysisResult:
-    """Parse LLM JSON output into typed schema. Handles missing/malformed fields gracefully."""
+def _count_keyword_matches_programmatic(
+    resume_json: str,
+    job_description: str,
+) -> dict[str, float]:
+    """Programmatically count keyword matches to cross-check the LLM score.
+
+    Returns dict with keyword_match_pct and matched_count.
+    Uses simple case-insensitive substring search across the full resume text.
+    """
+    import re as _re
+
+    # Extract important keywords from the JD (simple word extraction)
+    jd_lower = job_description.lower()
+    resume_lower = resume_json.lower()
+
+    # Common tech skill patterns to check
+    tech_patterns = [
+        "python", "fastapi", "flask", "django",
+        "postgresql", "mysql", "sqlite", "mongodb", "supabase", "sql database",
+        "docker", "kubernetes", "containeriz",
+        "ci/cd", "ci cd", "github actions", "jenkins",
+        "aws", "azure", "gcp", "cloud",
+        "rest api", "restful", "microservice",
+        "git", "github", "version control",
+        "javascript", "typescript", "react", "node.js", "nodejs",
+        "java", "spring", "kotlin",
+        "machine learning", "ai", "llm", "neural",
+        "redis", "elasticsearch", "kafka",
+        "linux", "unix", "bash",
+        "agile", "scrum",
+    ]
+
+    # Find which patterns appear in BOTH jd and resume
+    jd_keywords = [p for p in tech_patterns if p in jd_lower]
+    resume_keywords = [p for p in jd_keywords if p in resume_lower]
+
+    if not jd_keywords:
+        return {"keyword_match_pct": 0.0, "matched_count": 0, "total": 0}
+
+    pct = len(resume_keywords) / len(jd_keywords) * 100
+    return {
+        "keyword_match_pct": round(pct, 1),
+        "matched_count": len(resume_keywords),
+        "total": len(jd_keywords),
+    }
+
+
+def _parse_analysis(raw: dict, resume_id: str, job_id: str, resume_json: str = "", job_description: str = "") -> ATSAnalysisResult:
+    """Parse LLM JSON output into typed schema. Handles missing/malformed fields gracefully.
+
+    Also runs programmatic keyword counting to ensure the LLM score is calibrated
+    against actual keyword presence in the resume text.
+    """
 
     # ATS Score
     score_data = raw.get("ats_score", {})
@@ -59,6 +110,27 @@ def _parse_analysis(raw: dict, resume_id: str, job_id: str) -> ATSAnalysisResult
         education_fit=_safe_int(breakdown_data.get("education_fit", 0)),
         resume_completeness=_safe_int(breakdown_data.get("resume_completeness", 0)),
     )
+
+    # Programmatic cross-check: if the resume actually contains JD keywords,
+    # boost the LLM keyword_match to at least the programmatic count.
+    # This prevents the 8B model from under-scoring a well-tailored resume.
+    if resume_json and job_description:
+        prog = _count_keyword_matches_programmatic(resume_json, job_description)
+        prog_pct = prog["keyword_match_pct"]
+        if prog_pct > breakdown.keyword_match + 10:
+            # LLM significantly under-scored — use programmatic count as floor
+            logger.info(
+                "Programmatic keyword count (%.0f%%) > LLM keyword_match (%d) — boosting",
+                prog_pct,
+                breakdown.keyword_match,
+            )
+            breakdown = ATSScoreBreakdown(
+                keyword_match=_safe_int(prog_pct),
+                skills_alignment=max(breakdown.skills_alignment, _safe_int(prog_pct * 0.85)),
+                experience_relevance=breakdown.experience_relevance,
+                education_fit=breakdown.education_fit,
+                resume_completeness=breakdown.resume_completeness,
+            )
     # Recalculate overall using our formula to ensure consistency
     # Weights: keyword_match=35%, skills_alignment=30%, experience=20%, education=10%, completeness=5%
     # Balanced weighting so a strong candidate with semantic matches can still score 80+
@@ -250,7 +322,7 @@ async def analyze_resume_against_job(
     if not raw:
         raise ValueError("LLM returned empty response for ATS analysis")
 
-    result = _parse_analysis(raw, resume_id, job_id)
+    result = _parse_analysis(raw, resume_id, job_id, resume_json=resume_json, job_description=job_description)
     logger.info(
         "ATS analysis complete: overall=%d keyword_match=%d",
         result.ats_score.overall,

@@ -290,7 +290,21 @@ def apply_diffs(
     rejected: list[ResumeChange] = []
     allowed_skill_keys = _build_allowed_skill_target_keys(allowed_skill_targets)
 
-    for change in changes:
+    # Sort changes so content changes (summary, experience, projects) are applied
+    # BEFORE reorder/add_skill. This ensures the result dict has the new JD keywords
+    # in text before _is_semantic_equivalent_supported checks it for skills reorder.
+    def _change_priority(c: ResumeChange) -> int:
+        if c.path == "summary":
+            return 0
+        if c.action in ("replace", "append") and c.path != "additional.technicalSkills":
+            return 1
+        if c.action == "reorder" and c.path == "additional.technicalSkills":
+            return 3  # after all content changes
+        return 2
+
+    sorted_changes = sorted(changes, key=_change_priority)
+
+    for change in sorted_changes:
         path = change.path
         action = change.action
 

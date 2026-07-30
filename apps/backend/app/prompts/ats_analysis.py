@@ -130,7 +130,7 @@ Return ONLY valid JSON (no markdown, no extra text):
   }}
 }}
 
-Generate exactly 3 tailoring recommendations (most impactful only). Keep all string values concise.
+Generate exactly 2 interview questions and 2 tailoring recommendations (most impactful only). Keep all string values concise (1 sentence max).
 """
 
 

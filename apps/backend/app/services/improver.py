@@ -213,15 +213,53 @@ def _set_at_path(data: dict[str, Any], path: str, value: Any) -> bool:
     return True
 
 
+def _normalize_for_match(text: str) -> str:
+    """Normalize text for fuzzy matching — strip whitespace, collapse spaces,
+    normalize unicode, and remove punctuation differences."""
+    import unicodedata
+    # Normalize unicode (NFC) then strip
+    t = unicodedata.normalize("NFC", text).strip()
+    # Collapse whitespace
+    t = re.sub(r'\s+', ' ', t)
+    # Replace common Unicode substitutions that LLMs produce
+    t = t.replace('\u2014', '-').replace('\u2013', '-').replace('\u2019', "'")
+    t = t.replace('\u201c', '"').replace('\u201d', '"').replace('\u2022', '*')
+    # Replace the mangled UTF-8 sequences that appear when encoding goes wrong
+    t = t.replace('â\x80\x94', '-').replace('â', '-')
+    return t.casefold()
+
+
 def _verify_original_matches(actual: Any, expected: str | list[str] | None) -> bool:
-    """Verify that the original text from the diff matches the actual value."""
+    """Verify that the original text from the diff matches the actual value.
+
+    Uses fuzzy matching with two tiers:
+    1. Exact normalized match (unicode + whitespace normalization)
+    2. High-similarity fuzzy match (SequenceMatcher >= 0.82) to handle
+       LLM truncation of long strings and minor encoding differences.
+    """
     if expected is None:
         return True  # no original provided (e.g. append) — nothing to verify
     if not isinstance(expected, str):
         return False  # a non-str original on a text action is malformed — reject
     if not isinstance(actual, str):
         return False
-    return actual.strip().casefold() == expected.strip().casefold()
+
+    actual_n = _normalize_for_match(actual)
+    expected_n = _normalize_for_match(expected)
+
+    # Exact match after normalization
+    if actual_n == expected_n:
+        return True
+
+    # One is a prefix/suffix of the other (LLM often truncates long originals)
+    min_len = min(len(actual_n), len(expected_n))
+    if min_len >= 20:
+        if actual_n.startswith(expected_n[:min_len]) or expected_n.startswith(actual_n[:min_len]):
+            return True
+
+    # Fuzzy similarity — accept if >=82% similar
+    ratio = SequenceMatcher(None, actual_n, expected_n).ratio()
+    return ratio >= 0.82
 
 
 def apply_diffs(

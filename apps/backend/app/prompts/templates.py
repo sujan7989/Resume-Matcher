@@ -550,58 +550,54 @@ RULES:
 2. Do not invent metrics or achievements not supported by the original resume text
 3. Do not add new work entries, education entries, or project entries
 4. {strategy_instruction}
-5. Each change MUST include the original text (copied exactly) so it can be verified
+5. Each replace change MUST include "original" copied EXACTLY from the resume — character-for-character including any special characters. Use null only for "summary" path.
 6. For each change, explain WHY it helps match the job description
 7. Generate all new text in {output_language}
-8. Do not use em dash characters
+8. Do not use em dash characters in new text
 9. Keep changes minimal and targeted; do not rewrite content that already aligns well
 10. Exception to rule 2: you may add a skill only if it appears in the verified skill targets below
-11. SEMANTIC KEYWORD MAPPING — this is the most important rule for ATS scoring:
-    When rewriting bullets, you MUST translate the candidate's existing experience into the JD's exact terminology.
-    Required translations (adapt to the specific JD):
-    - "Flask" or "Node.js" → "RESTful API development" (when JD mentions REST APIs/backend)
-    - "MySQL" or "Firebase" or "Supabase" → "SQL database design" or "PostgreSQL-compatible" (when JD wants DB skills)
-    - "Python applications" → "Python backend application development"
-    - "deployed/deployment support" → "deployment pipeline and application maintenance"
-    - "AI services/AI APIs" → "AI/ML API integration"
-    - "testing, debugging" → "software testing, debugging, and quality assurance"
-    - "requirement analysis" → "requirements gathering and analysis"
-    These translations are FACTUALLY ACCURATE — the candidate did these things using these tools.
-12. Preserve original capitalization for proper nouns, technical terms (REST, API, AWS), and acronyms.
+11. SEMANTIC KEYWORD MAPPING — translate existing experience into JD terminology:
+    - "Flask" used for APIs → rewrite bullet as "Developed Python-based RESTful APIs using Flask"
+    - "MySQL/Firebase/Supabase" in projects → rewrite as "designed SQL database schema and managed data persistence"
+    - "Node.js" for backend → rewrite as "built backend services with Node.js"
+    - "deployment support" → "implemented deployment pipeline and maintained application"
+    - "AI services/AI APIs" → "integrated AI/ML APIs and LLM-powered features"
+    - "testing, debugging" → "conducted software testing, debugging, and quality assurance"
+    These are FACTUALLY accurate — do not invent, just translate to JD vocabulary.
+12. Preserve original capitalization for proper nouns, technical terms (REST, API, etc.)
 
 PATHS you can target:
-- "summary" — the resume summary text (for replace action, you MAY set "original": null since the summary is always replaced entirely)
-- "workExperience[i].description[j]" — a specific bullet (i = entry index, j = bullet index)
+- "summary" — the resume summary (set "original": null — always replaced entirely)
+- "workExperience[i].description[j]" — a specific bullet (i=entry index 0-based, j=bullet index 0-based)
 - "workExperience[i].description" — append a new bullet (action: "append")
-- "personalProjects[i].description[j]" — a specific project bullet
-- "personalProjects[i].description" — append a new project bullet (action: "append")
-- "education[i].description" — the education entry's description text (replace only; it is a single string, not a list)
-- "additional.technicalSkills" — reorder skills by relevance (action: "reorder"). When reordering, TRIM the list to the 15 most JD-relevant skills. Remove skills with zero relevance to this specific role. Keep core/foundation skills even if not in JD. The value array must contain ONLY the kept skills in relevance order. You MAY add semantically equivalent JD terms as new skills if they accurately reflect what the candidate already does (e.g., add "RESTful API Development" if they already build APIs with Flask).
-- "additional.languages" — reorder the languages list (action: "reorder")
-- "additional.certificationsTraining" — reorder the certifications list (action: "reorder")
-- "additional.awards" — reorder the awards list (action: "reorder")
+- "personalProjects[i].description[j]" — a specific project bullet (i=project index 0-based, j=bullet index 0-based)
+- "personalProjects[i].description" — append a project bullet (action: "append")
+- "education[i].description" — education description (replace only, single string)
+- "additional.technicalSkills" — reorder/trim skills (action: "reorder"). Include JD-equivalent terms at the front even if they're new (e.g., add "RESTful API Development" if resume shows Flask). Keep 12-15 most relevant. Remove zero-relevance skills.
+- "additional.languages" — reorder (action: "reorder")
+- "additional.certificationsTraining" — reorder (action: "reorder")
+- "additional.awards" — reorder (action: "reorder")
 
-Do NOT target: personalInfo, dates/years, company names, education degree/institution/years, customSections.
+Do NOT target: personalInfo, dates/years, company names, education institution/degree/years, customSections.
 
 REWRITING QUALITY RULES:
-For "summary": COMPLETELY rewrite it. Use the JD's role title. Include 5+ JD keywords the resume supports.
-  Translate ALL existing experience into JD's vocabulary.
-For experience/project bullets: Apply semantic keyword mapping (rule 11 above) to EVERY bullet.
+summary: COMPLETELY rewrite. Use the JD's role title. Include 5+ JD keywords. Sound like a professional built for this role.
+experience/project bullets: Rewrite using JD's exact terminology via semantic mapping (rule 11).
   BAD: "Built web apps with Flask"
-  GOOD: "Developed Python-based RESTful APIs and backend services with Flask for web applications"
-  BAD: "Used databases in projects"
-  GOOD: "Designed and implemented SQL database schemas (MySQL/PostgreSQL) for application data management"
+  GOOD: "Developed Python-based RESTful APIs and backend services using Flask for web applications"
+  BAD: "database operations"
+  GOOD: "designed and implemented SQL database schema with CRUD operations using MySQL/PostgreSQL"
 
-MINIMUM REQUIRED CHANGES (must include all of these):
-- 1 summary rewrite (always required)
-- 1 technicalSkills reorder with semantically equivalent JD terms added to front
-- ALL experience bullets rewritten using JD terminology
-- ALL project bullets rewritten using JD terminology
+MINIMUM REQUIRED CHANGES:
+- 1 summary rewrite
+- 1 technicalSkills reorder (add JD-equivalent terms to front)
+- Rewrite ALL experience bullets using JD terminology
+- Rewrite ALL project bullets using JD terminology (translate to JD language)
 
 Keywords to emphasize:
 {job_keywords}
 
-Verified skill targets:
+Verified skill targets (these are pre-approved to add to skills):
 {skill_targets}
 
 Job Description:
@@ -617,23 +613,23 @@ Output this exact JSON format, nothing else:
       "path": "summary",
       "action": "replace",
       "original": null,
-      "value": "the improved summary targeting this specific role with JD keywords",
+      "value": "Python Developer with X years experience building RESTful APIs and backend services using Python, FastAPI, and SQL databases...",
       "reason": "rewritten to match JD role title and include all critical keywords"
     }},
     {{
       "path": "workExperience[0].description[0]",
       "action": "replace",
-      "original": "the exact original text at this path",
-      "value": "the improved text using JD terminology",
-      "reason": "why this change improves ATS matching"
+      "original": "EXACT text from the resume at this path — copy character for character",
+      "value": "improved text using JD terminology",
+      "reason": "why this helps ATS matching"
     }},
     {{
       "path": "additional.technicalSkills",
       "action": "reorder",
       "original": null,
-      "value": ["Python", "RESTful API Development", "Backend Development", "SQL Databases", "Flask", "JavaScript", "Git", "Node.js", "Database Design", "React.js"],
-      "reason": "reordered and added semantic JD equivalents to front; removed irrelevant skills"
+      "value": ["Python", "RESTful API Development", "SQL Databases", "Flask", "Backend Development", "JavaScript", "Git", "Node.js", "React.js", "TypeScript"],
+      "reason": "reordered by JD relevance, added semantic equivalents, removed zero-relevance skills"
     }}
   ],
-  "strategy_notes": "brief summary of the tailoring approach"
+  "strategy_notes": "brief summary of approach"
 }}"""

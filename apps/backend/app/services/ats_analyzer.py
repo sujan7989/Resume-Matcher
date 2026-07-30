@@ -2,6 +2,8 @@
 
 All scores are computed from actual resume + JD content via LLM analysis.
 No fake data, no hardcoded scores. Every number is derived from content.
+
+v2.1 — programmatic keyword boost, 3-step scoring, semantic matching.
 """
 
 import json

@@ -145,13 +145,9 @@ def _parse_analysis(raw: dict, resume_id: str, job_id: str, resume_json: str = "
         + breakdown.education_fit * 0.10
         + breakdown.resume_completeness * 0.05
     )
-    # Trust LLM overall score if it's within ±15 of our calculated score (it has more context)
-    llm_overall = _safe_int(score_data.get("overall", calculated_overall))
-    if abs(llm_overall - calculated_overall) <= 15:
-        overall = llm_overall
-    else:
-        # LLM score is wildly off from component breakdown — use our formula
-        overall = calculated_overall
+    # Always use our formula — LLM overall is unreliable with small models.
+    # Our formula is grounded in the breakdown components which we've verified/boosted.
+    overall = calculated_overall
     ats_score = ATSScore(
         overall=overall,
         breakdown=breakdown,

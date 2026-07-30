@@ -10,20 +10,35 @@ JOB DESCRIPTION:
 RESUME DATA (JSON):
 {resume_json}
 
-SCORING RULES (be precise and harsh — ATS systems are strict):
-- keyword_match: % of CRITICAL JD keywords found verbatim in resume (exact or very close match)
-  * 90-100: Almost all critical keywords present
-  * 70-89: Most critical keywords present, some missing
-  * 50-69: About half of critical keywords present
-  * Below 50: Many critical keywords missing
-- skills_alignment: How well the resume's technical stack matches JD requirements
-  * If JD requires Python+FastAPI+PostgreSQL and resume shows Python+Flask+MySQL: score 60-70
-  * If resume matches 80%+ of required skills exactly: score 85+
-- experience_relevance: Does candidate have relevant experience for this role
-- education_fit: Does education match requirements (be lenient for equivalent experience)
-- resume_completeness: Has professional summary, all required sections, contact info
+CRITICAL MATCHING RULES — ATS systems use semantic matching, not just exact strings:
+- "Flask" or "Django" or "Node.js" counts as experience with "REST APIs" and "backend development"
+- "MySQL" or "Firebase" or "Supabase" counts as partial match for "PostgreSQL" (SQL databases)
+- "JavaScript/TypeScript" counts as "frontend development" experience
+- "Git" matches "version control" and "GitHub workflows"
+- "AI APIs" / "LLM applications" matches "AI/ML integration"
+- "Freelance Software Developer" with full-stack work matches "software developer" roles
+- Academic projects count as real experience for entry-level/junior roles
+- Count EVERY relevant skill, not just exact matches
 
-CRITICAL: For missing_keywords, list EVERY important JD term NOT found in the resume.
+SCORING RULES (be calibrated — not too harsh, not too lenient):
+- keyword_match: % of CRITICAL JD keywords found verbatim OR semantically in resume
+  * 90-100: Almost all critical keywords present (exact or semantic)
+  * 70-89: Most critical keywords present, few missing
+  * 50-69: About half of critical keywords present
+  * Below 50: Many critical keywords genuinely missing
+- skills_alignment: How well the resume's technical stack matches JD requirements
+  * Score based on semantic equivalents, not just exact tool names
+  * Python+Flask+REST APIs is STRONG alignment for a Python backend role
+  * If JD requires senior 5+ years and resume has <2 years: reduce by 20-30 points
+- experience_relevance: Does experience demonstrate the required responsibilities?
+  * Projects count as experience for entry/junior roles
+  * API development, database work, deployment ARE relevant
+- education_fit: CS/Engineering degree = high fit for software roles (80+)
+- resume_completeness: Has all required sections, summary, contact info (score high if present)
+
+IMPORTANT: After a resume is tailored, re-score accurately. If the tailored resume contains the JD keywords, it should score 80-95+.
+
+CRITICAL: For missing_keywords, list EVERY important JD term genuinely NOT found in the resume (including semantic equivalents).
 For suggestion, give the EXACT text to add to the resume.
 
 Return ONLY valid JSON:
@@ -38,14 +53,14 @@ Return ONLY valid JSON:
       "education_fit": <integer 0-100>,
       "resume_completeness": <integer 0-100>
     }},
-    "score_explanation": "<specific explanation: which keywords matched, which didn't, why this score>"
+    "score_explanation": "<specific explanation: list each JD keyword and whether it was found (exact or semantic), explain the score precisely>"
   }},
   "keyword_analysis": {{
     "matched_keywords": [
-      {{"keyword": "<exact JD term found in resume>", "importance": "critical|important|nice_to_have", "found_in": "skills|experience|education|summary"}}
+      {{"keyword": "<JD term found in resume — exact or semantic match>", "importance": "critical|important|nice_to_have", "found_in": "skills|experience|education|summary|projects"}}
     ],
     "missing_keywords": [
-      {{"keyword": "<exact JD term NOT in resume>", "importance": "critical|important|nice_to_have", "suggestion": "<exact text to add to resume to include this keyword naturally>"}}
+      {{"keyword": "<JD term genuinely NOT in resume — no semantic equivalent either>", "importance": "critical|important|nice_to_have", "suggestion": "<exact text to add to resume to include this keyword naturally>"}}
     ],
     "total_jd_keywords": <integer — count ALL important terms in JD>,
     "matched_count": <integer>,
@@ -53,12 +68,12 @@ Return ONLY valid JSON:
   }},
   "skill_gap": {{
     "critical_missing": [
-      {{"skill": "<skill from JD not in resume>", "context": "<why this skill is critical>", "how_to_address": "<exactly how to add this to resume if candidate has related experience>"}}
+      {{"skill": "<skill from JD genuinely not in resume>", "context": "<why this skill is critical>", "how_to_address": "<exactly how to add this to resume if candidate has related experience>"}}
     ],
     "partial_match": [
-      {{"skill": "<skill name>", "resume_has": "<what resume shows>", "jd_needs": "<what JD requires>", "gap": "<specific gap>"}}
+      {{"skill": "<skill name>", "resume_has": "<what resume shows as semantic equivalent>", "jd_needs": "<what JD requires>", "gap": "<specific gap if any>"}}
     ],
-    "strong_matches": ["<skill present in both resume and JD>"]
+    "strong_matches": ["<skill present in both resume and JD — exact or semantic>"]
   }},
   "resume_quality": {{
     "completeness_score": <integer 0-100>,
@@ -97,11 +112,12 @@ Return ONLY valid JSON:
   }}
 }}
 
-Be accurate and harsh — the candidate needs honest feedback to improve their resume.
-A score of 90+ means the resume is nearly perfect for this role.
-A score of 55-65 means significant tailoring needed.
-- Generate exactly 3 tailoring recommendations (not 5), most impactful ones only
-- Keep all string values concise (1-2 sentences max) to reduce output size
+CALIBRATION EXAMPLES:
+- Resume with Python, Flask, REST APIs, SQL, Git applying to Python Backend Developer role: keyword_match should be 65-75 (has most basics), skills_alignment 65-75
+- Same resume AFTER tailoring with FastAPI, PostgreSQL, Docker language in resume: keyword_match 80-90, skills_alignment 80-90
+- A perfectly tailored resume with ALL JD keywords explicitly present: 90-95 overall
+
+Generate exactly 3 tailoring recommendations (most impactful only). Keep string values concise (1-2 sentences max).
 """
 
 

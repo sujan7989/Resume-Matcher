@@ -765,8 +765,8 @@ def verify_skill_target_plan(
 
     Existing resume skills are accepted as low-risk targets. Required and
     preferred JD skills are accepted as explicit JD-added targets for user
-    review. Other skills are accepted only when they already appear in the
-    resume text.
+    review. Semantic equivalents are also accepted (e.g. "RESTful API Development"
+    when resume has Flask, or "SQL Databases" when resume has MySQL/Supabase).
     """
     original_skills = _extract_skill_index(
         original_resume_data.get("additional", {}).get("technicalSkills", [])
@@ -806,9 +806,8 @@ def verify_skill_target_plan(
         elif skill_key in jd_skills:
             # JD-required/preferred skills are accepted as targets so the résumé
             # can be tailored to actually pass ATS/recruiter screening — adding
-            # relevant JD skills is the product's purpose. (Truly unsupported
-            # skills — neither in the JD nor the résumé — are still rejected
-            # below.) The user reviews additions in the diff preview before save.
+            # relevant JD skills is the product's purpose. The user reviews
+            # additions in the diff preview before save.
             accepted.append(
                 {
                     "skill": jd_skills[skill_key],
@@ -822,6 +821,17 @@ def verify_skill_target_plan(
                     "skill": skill,
                     "source": "supported_by_resume",
                     "reason": reason or "Appears in the existing resume content",
+                }
+            )
+        elif _is_semantic_equivalent_supported(skill, original_resume_data):
+            # Accept semantically equivalent skill labels — these accurately describe
+            # what the candidate already does using a different tool name.
+            # E.g. "RESTful API Development" is accurate if resume shows Flask+REST APIs.
+            accepted.append(
+                {
+                    "skill": skill,
+                    "source": "semantic_equivalent",
+                    "reason": reason or "Semantic equivalent supported by resume experience",
                 }
             )
         else:
@@ -838,6 +848,45 @@ def verify_skill_target_plan(
         "rejected": rejected,
         "strategy_notes": str(raw_plan.get("strategy_notes", "")),
     }
+
+
+# Semantic equivalence map — phrase → list of resume signals that support it
+_SEMANTIC_SKILL_MAP: dict[str, list[str]] = {
+    "restful api development": ["flask", "django", "node.js", "rest api", "fastapi", "express", "spring boot"],
+    "rest api development": ["flask", "django", "node.js", "rest api", "fastapi", "express"],
+    "backend development": ["flask", "django", "node.js", "fastapi", "python", "java", "spring boot"],
+    "api development": ["flask", "django", "node.js", "rest api", "fastapi", "api integration"],
+    "sql databases": ["mysql", "postgresql", "supabase", "sqlite", "sql", "database", "mariadb"],
+    "database design": ["mysql", "postgresql", "supabase", "sqlite", "sql", "firebase", "mongodb", "database"],
+    "python development": ["python", "flask", "django", "fastapi"],
+    "python backend": ["python", "flask", "django", "fastapi"],
+    "version control": ["git", "github", "gitlab", "bitbucket"],
+    "ci/cd": ["git", "github", "docker", "deployment"],
+    "full stack development": ["react", "node.js", "python", "javascript", "flask", "frontend", "backend"],
+    "frontend development": ["react", "javascript", "typescript", "html", "css", "vue", "angular"],
+    "deployment": ["docker", "heroku", "deployment", "vercel", "render", "cloud"],
+    "software testing": ["testing", "debugging", "jest", "pytest", "unittest", "quality assurance"],
+    "agile development": ["agile", "scrum", "sprint", "jira", "project management"],
+    "ai integration": ["ai apis", "llm", "openai", "gemini", "generative ai", "ai-assisted", "ml"],
+    "cloud services": ["aws", "gcp", "azure", "firebase", "supabase", "heroku"],
+    "microservices": ["flask", "fastapi", "node.js", "rest api", "api", "backend"],
+}
+
+
+def _is_semantic_equivalent_supported(skill: str, resume_data: dict[str, Any]) -> bool:
+    """Check if a skill label is semantically supported by the resume content.
+
+    E.g. "RESTful API Development" is supported when the resume shows Flask,
+    since Flask is used to build REST APIs.
+    """
+    skill_key = _normalize_skill_key(skill)
+    signals = _SEMANTIC_SKILL_MAP.get(skill_key)
+    if not signals:
+        return False
+
+    resume_text = json.dumps(resume_data, ensure_ascii=False).lower()
+    # Skill is supported if at least one signal term is found in the resume
+    return any(signal in resume_text for signal in signals)
 
 
 async def generate_skill_target_plan(

@@ -60,17 +60,24 @@ def _parse_analysis(raw: dict, resume_id: str, job_id: str) -> ATSAnalysisResult
         resume_completeness=_safe_int(breakdown_data.get("resume_completeness", 0)),
     )
     # Recalculate overall using our formula to ensure consistency
-    # Weights: keyword_match=40%, skills_alignment=35%, experience=15%, education=5%, completeness=5%
-    # This matches how ATS systems actually prioritize — keywords and skills are 75% of the score
+    # Weights: keyword_match=35%, skills_alignment=30%, experience=20%, education=10%, completeness=5%
+    # Balanced weighting so a strong candidate with semantic matches can still score 80+
     calculated_overall = int(
-        breakdown.keyword_match * 0.40
-        + breakdown.skills_alignment * 0.35
-        + breakdown.experience_relevance * 0.15
-        + breakdown.education_fit * 0.05
+        breakdown.keyword_match * 0.35
+        + breakdown.skills_alignment * 0.30
+        + breakdown.experience_relevance * 0.20
+        + breakdown.education_fit * 0.10
         + breakdown.resume_completeness * 0.05
     )
+    # Trust LLM overall score if it's within ±15 of our calculated score (it has more context)
+    llm_overall = _safe_int(score_data.get("overall", calculated_overall))
+    if abs(llm_overall - calculated_overall) <= 15:
+        overall = llm_overall
+    else:
+        # LLM score is wildly off from component breakdown — use our formula
+        overall = calculated_overall
     ats_score = ATSScore(
-        overall=_safe_int(score_data.get("overall", calculated_overall)),
+        overall=overall,
         breakdown=breakdown,
         score_explanation=score_data.get("score_explanation", ""),
     )

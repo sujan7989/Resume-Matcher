@@ -550,86 +550,97 @@ RULES:
 2. Do not invent metrics or achievements not supported by the original resume text
 3. Do not add new work entries, education entries, or project entries
 4. {strategy_instruction}
-5. Each replace change MUST include "original" copied EXACTLY from the resume — character-for-character including any special characters. Use null only for "summary" path.
+5. Each replace change MUST include "original" copied EXACTLY from the resume — character-for-character. Use null only for "summary" path.
 6. For each change, explain WHY it helps match the job description
 7. Generate all new text in {output_language}
 8. Do not use em dash characters in new text
-9. Keep changes minimal and targeted; do not rewrite content that already aligns well
-10. Exception to rule 2: you may add a skill only if it appears in the verified skill targets below
-11. SEMANTIC KEYWORD MAPPING — translate existing experience into JD terminology:
-    - "Flask" used for APIs → rewrite bullet as "Developed Python-based RESTful APIs using Flask"
-    - "MySQL/Firebase/Supabase" in projects → rewrite as "designed SQL database schema and managed data persistence"
-    - "Node.js" for backend → rewrite as "built backend services with Node.js"
-    - "deployment support" → "implemented deployment pipeline and maintained application"
-    - "AI services/AI APIs" → "integrated AI/ML APIs and LLM-powered features"
-    - "testing, debugging" → "conducted software testing, debugging, and quality assurance"
-    These are FACTUALLY accurate — do not invent, just translate to JD vocabulary.
-12. Preserve original capitalization for proper nouns, technical terms (REST, API, etc.)
+9. SEMANTIC KEYWORD MAPPING — translate existing experience into JD terminology:
+   - "Flask" used for APIs → rewrite as "developed Python-based RESTful APIs using Flask"
+   - "MySQL/Firebase/Supabase" → rewrite as "SQL database design and management"
+   - "AI services/AI APIs" → rewrite as "integrated AI/ML APIs and LLM-powered features"
+   - "testing, debugging" → rewrite as "software testing, debugging, and quality assurance"
+   - "deployment support" → rewrite as "deployment pipeline and application maintenance"
+10. Preserve original capitalization for technical terms (REST, API, etc.)
 
 PATHS you can target:
-- "summary" — the resume summary (set "original": null — always replaced entirely)
-- "workExperience[i].description[j]" — a specific bullet (i=entry index 0-based, j=bullet index 0-based)
+- "summary" — the resume summary (set "original": null)
+- "workExperience[i].description[j]" — a specific bullet (i=entry index, j=bullet index, both 0-based)
 - "workExperience[i].description" — append a new bullet (action: "append")
-- "personalProjects[i].description[j]" — a specific project bullet (i=project index 0-based, j=bullet index 0-based)
+- "personalProjects[i].description[j]" — a specific project bullet (i=project index, j=bullet index, both 0-based)
 - "personalProjects[i].description" — append a project bullet (action: "append")
-- "education[i].description" — education description (replace only, single string)
-- "additional.technicalSkills" — reorder/trim skills (action: "reorder"). Include JD-equivalent terms at the front even if they're new (e.g., add "RESTful API Development" if resume shows Flask). Keep 12-15 most relevant. Remove zero-relevance skills.
-- "additional.languages" — reorder (action: "reorder")
-- "additional.certificationsTraining" — reorder (action: "reorder")
-- "additional.awards" — reorder (action: "reorder")
+- "education[i].description" — education description (replace only)
+- "additional.technicalSkills" — reorder skills (action: "reorder"). Include JD-equivalent terms at front. Keep 12-15. Remove irrelevant skills.
+- "additional.languages", "additional.certificationsTraining", "additional.awards" — reorder
 
 Do NOT target: personalInfo, dates/years, company names, education institution/degree/years, customSections.
 
-REWRITING QUALITY RULES:
-summary: COMPLETELY rewrite. Use the JD's role title. Include 5+ JD keywords. Sound like a professional built for this role.
-experience/project bullets: Rewrite using JD's exact terminology via semantic mapping (rule 11).
-  BAD: "Built web apps with Flask"
-  GOOD: "Developed Python-based RESTful APIs and backend services using Flask for web applications"
-  BAD: "database operations"
-  GOOD: "designed and implemented SQL database schema with CRUD operations using MySQL/PostgreSQL"
+REQUIRED CHANGES — you MUST generate ALL of the following:
 
-MINIMUM REQUIRED CHANGES:
-- 1 summary rewrite
-- 1 technicalSkills reorder (add JD-equivalent terms to front)
-- Rewrite ALL experience bullets using JD terminology
-- Rewrite ALL project bullets using JD terminology (translate to JD language)
+A) summary rewrite (always):
+   Path: "summary", action: "replace", original: null
+   Open with role title from JD. Include 5+ JD keywords. 2-3 sentences.
+
+B) skills reorder (always):
+   Path: "additional.technicalSkills", action: "reorder"
+   Put JD-critical skills first. Add semantic equivalents. Remove irrelevant skills.
+
+C) ALL work experience bullets (rewrite each one using JD terminology):
+   Path: "workExperience[0].description[0]", action: "replace", original: "<EXACT text>"
+   Path: "workExperience[0].description[1]", action: "replace", original: "<EXACT text>"
+   ...continue for all bullets
+
+D) ALL project bullets (rewrite EVERY bullet of EVERY project using JD terminology):
+   Path: "personalProjects[0].description[0]", action: "replace", original: "<EXACT text>"
+   Path: "personalProjects[0].description[1]", action: "replace", original: "<EXACT text>"
+   Path: "personalProjects[1].description[0]", action: "replace", original: "<EXACT text>"
+   Path: "personalProjects[1].description[1]", action: "replace", original: "<EXACT text>"
+   Path: "personalProjects[2].description[0]", action: "replace", original: "<EXACT text>"
+   Path: "personalProjects[2].description[1]", action: "replace", original: "<EXACT text>"
+   For EACH project bullet: rewrite using JD vocabulary. Map existing tech to JD terms.
 
 Keywords to emphasize:
 {job_keywords}
 
-Verified skill targets (these are pre-approved to add to skills):
+Verified skill targets:
 {skill_targets}
 
 Job Description:
 {job_description}
 
-Original Resume:
+Original Resume (use exact bullet text for "original" fields):
 {original_resume}
 
-Output this exact JSON format, nothing else:
+Output ONLY this JSON format:
 {{
   "changes": [
     {{
       "path": "summary",
       "action": "replace",
       "original": null,
-      "value": "Python Developer with X years experience building RESTful APIs and backend services using Python, FastAPI, and SQL databases...",
-      "reason": "rewritten to match JD role title and include all critical keywords"
+      "value": "Python Developer with hands-on experience building REST APIs and web applications using Python, Flask, and SQL databases...",
+      "reason": "targets JD role and includes all critical keywords"
     }},
     {{
       "path": "workExperience[0].description[0]",
       "action": "replace",
-      "original": "EXACT text from the resume at this path — copy character for character",
-      "value": "improved text using JD terminology",
-      "reason": "why this helps ATS matching"
+      "original": "EXACT text copied from resume",
+      "value": "Developed Python-based REST APIs and backend services using Flask for web applications...",
+      "reason": "uses JD REST API terminology"
+    }},
+    {{
+      "path": "personalProjects[0].description[0]",
+      "action": "replace",
+      "original": "EXACT text copied from resume",
+      "value": "Built Python-based REST API backend with Flask and SQL database integration for real-time data processing",
+      "reason": "maps project to JD Python/REST API/SQL requirements"
     }},
     {{
       "path": "additional.technicalSkills",
       "action": "reorder",
       "original": null,
-      "value": ["Python", "RESTful API Development", "SQL Databases", "Flask", "Backend Development", "JavaScript", "Git", "Node.js", "React.js", "TypeScript"],
-      "reason": "reordered by JD relevance, added semantic equivalents, removed zero-relevance skills"
+      "value": ["Python", "REST APIs", "Flask", "SQL Databases", "JavaScript", "React.js", "Git", "Node.js", "TypeScript"],
+      "reason": "JD-critical skills first, removed irrelevant skills"
     }}
   ],
-  "strategy_notes": "brief summary of approach"
+  "strategy_notes": "tailored for JD role"
 }}"""

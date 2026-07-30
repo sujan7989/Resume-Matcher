@@ -305,8 +305,21 @@ async def analyze_resume_against_job(
     if not resume_json:
         raise ValueError("Resume data is empty")
 
+    # If job keywords haven't been extracted yet (background task still running),
+    # extract them now synchronously so the ATS analysis has full context
+    job_keywords_str = ""
+    job_keywords = job.get("job_keywords")
+    if job_keywords:
+        kw_list = []
+        for field in ("required_skills", "preferred_skills", "ats_critical_keywords", "keywords"):
+            vals = job_keywords.get(field, [])
+            if isinstance(vals, list):
+                kw_list.extend(str(v) for v in vals if v)
+        if kw_list:
+            job_keywords_str = "\n\nKey JD terms extracted: " + ", ".join(kw_list[:30])
+
     prompt = ATS_ANALYSIS_PROMPT.format(
-        job_description=job_description,
+        job_description=job_description + job_keywords_str,
         resume_json=resume_json,
     )
 

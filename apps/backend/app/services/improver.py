@@ -315,10 +315,15 @@ def apply_diffs(
 
         if action == "replace":
             # Gate 4: Original text must match what's actually there
-            # Exception: for the "summary" path, skip strict matching since the LLM
-            # often truncates long summaries in the original field. The summary path
-            # is always a single string so false positives are impossible.
-            if path != "summary" and not _verify_original_matches(actual_value, change.original):
+            # Exceptions where strict matching is skipped:
+            # 1. summary path — always full replacement, no false positives possible
+            # 2. personalProjects description bullets — LLM often copies special chars
+            #    differently (mangled em-dash variants). Projects have no identity
+            #    fields at the bullet level, so fuzzy/skip is safe.
+            is_project_bullet = bool(re.match(r"^personalProjects\[\d+\]\.description\[\d+\]$", path))
+            skip_original_check = (path == "summary" or is_project_bullet)
+
+            if not skip_original_check and not _verify_original_matches(actual_value, change.original):
                 logger.info(
                     "Diff rejected (original mismatch): path=%s expected=%r actual=%r",
                     path,
@@ -895,22 +900,31 @@ def verify_skill_target_plan(
 _SEMANTIC_SKILL_MAP: dict[str, list[str]] = {
     "restful api development": ["flask", "django", "node.js", "rest api", "fastapi", "express", "spring boot"],
     "rest api development": ["flask", "django", "node.js", "rest api", "fastapi", "express"],
-    "backend development": ["flask", "django", "node.js", "fastapi", "python", "java", "spring boot"],
-    "api development": ["flask", "django", "node.js", "rest api", "fastapi", "api integration"],
-    "sql databases": ["mysql", "postgresql", "supabase", "sqlite", "sql", "database", "mariadb"],
+    "backend development": ["flask", "django", "node.js", "fastapi", "python", "java", "spring boot", "backend"],
+    "api development": ["flask", "django", "node.js", "rest api", "fastapi", "api integration", "api handling"],
+    "sql databases": ["mysql", "postgresql", "supabase", "sqlite", "sql", "database", "mariadb", "sql database"],
     "database design": ["mysql", "postgresql", "supabase", "sqlite", "sql", "firebase", "mongodb", "database"],
+    "sql database design": ["mysql", "postgresql", "supabase", "sqlite", "sql", "firebase", "database"],
     "python development": ["python", "flask", "django", "fastapi"],
     "python backend": ["python", "flask", "django", "fastapi"],
+    "python backend development": ["python", "flask", "django", "fastapi"],
     "version control": ["git", "github", "gitlab", "bitbucket"],
-    "ci/cd": ["git", "github", "docker", "deployment"],
+    "ci/cd": ["git", "github", "docker", "deployment", "pipeline", "ci/cd"],
     "full stack development": ["react", "node.js", "python", "javascript", "flask", "frontend", "backend"],
     "frontend development": ["react", "javascript", "typescript", "html", "css", "vue", "angular"],
-    "deployment": ["docker", "heroku", "deployment", "vercel", "render", "cloud"],
+    "deployment": ["docker", "heroku", "deployment", "vercel", "render", "cloud", "pipeline"],
     "software testing": ["testing", "debugging", "jest", "pytest", "unittest", "quality assurance"],
     "agile development": ["agile", "scrum", "sprint", "jira", "project management"],
-    "ai integration": ["ai apis", "llm", "openai", "gemini", "generative ai", "ai-assisted", "ml"],
-    "cloud services": ["aws", "gcp", "azure", "firebase", "supabase", "heroku"],
-    "microservices": ["flask", "fastapi", "node.js", "rest api", "api", "backend"],
+    "ai integration": ["ai apis", "llm", "openai", "gemini", "generative ai", "ai-assisted", "ml", "ai/ml"],
+    "ai/ml api integration": ["ai apis", "llm", "openai", "gemini", "generative ai", "ai-assisted", "ml"],
+    "cloud services": ["aws", "gcp", "azure", "firebase", "supabase", "heroku", "cloud"],
+    "microservices": ["flask", "fastapi", "node.js", "rest api", "api", "backend", "microservices", "microservice"],
+    "microservices architecture": ["flask", "fastapi", "node.js", "rest api", "api", "backend", "microservices"],
+    # After tailoring, these appear explicitly in summary/experience bullets
+    "fastapi": ["fastapi", "flask", "python", "rest api", "restful api"],
+    "postgresql": ["postgresql", "mysql", "supabase", "sqlite", "sql database", "sql databases"],
+    "docker": ["docker", "deployment", "containeriz", "pipeline"],
+    "aws": ["aws", "cloud", "heroku", "vercel", "render", "deployment"],
 }
 
 

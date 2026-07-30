@@ -360,7 +360,10 @@ def apply_diffs(
                         # else: a duplicate of an already-placed original — skip
                     elif is_skills and cf not in added_new:
                         skill = item.strip()
-                        if skill and _normalize_skill_key(skill) in allowed_skill_keys:
+                        if skill and (
+                            _normalize_skill_key(skill) in allowed_skill_keys
+                            or _is_semantic_equivalent_supported(skill, result)
+                        ):
                             reordered.append(skill)  # verified new skill, requested position
                             added_new.add(cf)
                         else:
@@ -400,7 +403,7 @@ def apply_diffs(
                 logger.info("Diff rejected (duplicate skill): %s", new_skill)
                 rejected.append(change)
                 continue
-            if _normalize_skill_key(new_skill) not in allowed_skill_keys:
+            if _normalize_skill_key(new_skill) not in allowed_skill_keys and not _is_semantic_equivalent_supported(new_skill, result):
                 logger.info("Diff rejected (skill not in verified targets): %s", new_skill)
                 rejected.append(change)
                 continue

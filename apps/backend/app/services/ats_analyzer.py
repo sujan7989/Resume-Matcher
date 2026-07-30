@@ -64,18 +64,20 @@ def _count_keyword_matches_programmatic(
     # Common tech skill patterns to check
     tech_patterns = [
         "python", "fastapi", "flask", "django",
-        "postgresql", "mysql", "sqlite", "mongodb", "supabase", "sql database",
+        "postgresql", "mysql", "sqlite", "mongodb", "supabase", "sql database", "sql databases",
         "docker", "kubernetes", "containeriz",
         "ci/cd", "ci cd", "github actions", "jenkins",
         "aws", "azure", "gcp", "cloud",
-        "rest api", "restful", "microservice",
+        "rest api", "restful", "microservice", "web application", "web app",
         "git", "github", "version control",
         "javascript", "typescript", "react", "node.js", "nodejs",
         "java", "spring", "kotlin",
-        "machine learning", "ai", "llm", "neural",
+        "machine learning", "ai", "llm", "neural", "ai/ml",
         "redis", "elasticsearch", "kafka",
         "linux", "unix", "bash",
         "agile", "scrum",
+        "testing", "debugging", "quality assurance", "qa",
+        "html", "css",
     ]
 
     # Find which patterns appear in BOTH jd and resume

@@ -1,8 +1,8 @@
 """LLM prompts for ATS analysis, skill gap, resume scoring, and interview prep."""
 
-ATS_ANALYSIS_PROMPT = """You are a senior technical recruiter and resume expert with 15+ years of experience screening candidates.
+ATS_ANALYSIS_PROMPT = """You are a senior ATS (Applicant Tracking System) expert and technical recruiter with 15+ years experience.
 
-Analyze this resume against the job description and provide a comprehensive, accurate assessment.
+Your job: Give an ACCURATE ATS score that reflects what automated systems would give this resume for this specific job.
 
 JOB DESCRIPTION:
 {job_description}
@@ -10,7 +10,23 @@ JOB DESCRIPTION:
 RESUME DATA (JSON):
 {resume_json}
 
-Perform a thorough analysis and return ONLY valid JSON in this exact format:
+SCORING RULES (be precise and harsh — ATS systems are strict):
+- keyword_match: % of CRITICAL JD keywords found verbatim in resume (exact or very close match)
+  * 90-100: Almost all critical keywords present
+  * 70-89: Most critical keywords present, some missing
+  * 50-69: About half of critical keywords present
+  * Below 50: Many critical keywords missing
+- skills_alignment: How well the resume's technical stack matches JD requirements
+  * If JD requires Python+FastAPI+PostgreSQL and resume shows Python+Flask+MySQL: score 60-70
+  * If resume matches 80%+ of required skills exactly: score 85+
+- experience_relevance: Does candidate have relevant experience for this role
+- education_fit: Does education match requirements (be lenient for equivalent experience)
+- resume_completeness: Has professional summary, all required sections, contact info
+
+CRITICAL: For missing_keywords, list EVERY important JD term NOT found in the resume.
+For suggestion, give the EXACT text to add to the resume.
+
+Return ONLY valid JSON:
 
 {{
   "ats_score": {{
@@ -22,34 +38,34 @@ Perform a thorough analysis and return ONLY valid JSON in this exact format:
       "education_fit": <integer 0-100>,
       "resume_completeness": <integer 0-100>
     }},
-    "score_explanation": "<1-2 sentence honest explanation of the overall score>"
+    "score_explanation": "<specific explanation: which keywords matched, which didn't, why this score>"
   }},
   "keyword_analysis": {{
     "matched_keywords": [
-      {{"keyword": "<term>", "importance": "critical|important|nice_to_have", "found_in": "skills|experience|education|summary"}}
+      {{"keyword": "<exact JD term found in resume>", "importance": "critical|important|nice_to_have", "found_in": "skills|experience|education|summary"}}
     ],
     "missing_keywords": [
-      {{"keyword": "<term>", "importance": "critical|important|nice_to_have", "suggestion": "<how to naturally add this to resume>"}}
+      {{"keyword": "<exact JD term NOT in resume>", "importance": "critical|important|nice_to_have", "suggestion": "<exact text to add to resume to include this keyword naturally>"}}
     ],
-    "total_jd_keywords": <integer>,
+    "total_jd_keywords": <integer — count ALL important terms in JD>,
     "matched_count": <integer>,
     "match_percentage": <float 0-100>
   }},
   "skill_gap": {{
     "critical_missing": [
-      {{"skill": "<skill name>", "context": "<why this skill matters for this role>", "how_to_address": "<practical advice: learn X, add project Y, get certification Z>"}}
+      {{"skill": "<skill from JD not in resume>", "context": "<why this skill is critical>", "how_to_address": "<exactly how to add this to resume if candidate has related experience>"}}
     ],
     "partial_match": [
-      {{"skill": "<skill name>", "resume_has": "<what they have>", "jd_needs": "<what role needs>", "gap": "<specific gap>"}}
+      {{"skill": "<skill name>", "resume_has": "<what resume shows>", "jd_needs": "<what JD requires>", "gap": "<specific gap>"}}
     ],
-    "strong_matches": ["<skill>", "<skill>"]
+    "strong_matches": ["<skill present in both resume and JD>"]
   }},
   "resume_quality": {{
     "completeness_score": <integer 0-100>,
     "issues": [
-      {{"category": "missing_section|weak_bullets|no_metrics|contact_incomplete|no_summary|short_experience", "description": "<specific issue>", "fix": "<exact actionable fix>"}}
+      {{"category": "missing_section|weak_bullets|no_metrics|contact_incomplete|no_summary|short_experience|missing_keywords", "description": "<specific issue>", "fix": "<exact fix>"}}
     ],
-    "strengths": ["<specific strength>", "<specific strength>"],
+    "strengths": ["<specific strength>"],
     "bullet_quality": {{
       "has_action_verbs": <boolean>,
       "has_metrics": <boolean>,
@@ -59,43 +75,31 @@ Perform a thorough analysis and return ONLY valid JSON in this exact format:
   }},
   "interview_questions": [
     {{
-      "question": "<specific interview question based on JD + resume>",
+      "question": "<specific question based on JD + resume gap>",
       "category": "technical|behavioral|situational|culture_fit",
-      "why_asked": "<why a recruiter would ask this>",
-      "tip": "<how to answer well based on the resume>"
+      "why_asked": "<why recruiter asks this>",
+      "tip": "<how to answer based on resume>"
     }}
   ],
   "tailoring_recommendations": [
     {{
       "priority": "high|medium|low",
       "section": "summary|experience|skills|education|projects",
-      "recommendation": "<specific, actionable recommendation>",
-      "example": "<concrete example of what to write>"
+      "recommendation": "<SPECIFIC actionable recommendation>",
+      "example": "<exact text to write>"
     }}
   ],
   "job_fit_verdict": {{
     "fit_level": "excellent|good|moderate|poor",
-    "summary": "<2-3 sentence honest assessment of overall fit>",
+    "summary": "<honest 2-3 sentence assessment>",
     "biggest_strength": "<strongest alignment point>",
-    "biggest_gap": "<most critical thing to address>"
+    "biggest_gap": "<most critical missing requirement>"
   }}
 }}
 
-SCORING RULES (be accurate, not generous):
-- keyword_match: % of important JD keywords found in resume (exact + semantic match)
-- skills_alignment: how well candidate's skills match role requirements (not just keyword presence)
-- experience_relevance: how relevant is their work history to this specific role
-- education_fit: does education match requirements (be lenient for equivalent experience)
-- resume_completeness: has all standard sections, contact info, LinkedIn/GitHub for tech roles
-
-IMPORTANT:
-- Overall score = (keyword_match*0.35 + skills_alignment*0.30 + experience_relevance*0.20 + education_fit*0.10 + resume_completeness*0.05)
-- Round to nearest integer
-- Be honest — a poor fit should score 30-45, a good fit 65-80, excellent 85+
-- Never inflate scores — accuracy builds trust
-- Generate exactly 3 interview questions (not 5), mix of technical and behavioral
-- Interview questions must be specific to THIS resume + THIS job, not generic
-- Missing keywords should only include terms actually important for the role
+Be accurate and harsh — the candidate needs honest feedback to improve their resume.
+A score of 90+ means the resume is nearly perfect for this role.
+A score of 55-65 means significant tailoring needed.
 - Generate exactly 3 tailoring recommendations (not 5), most impactful ones only
 - Keep all string values concise (1-2 sentences max) to reduce output size
 """

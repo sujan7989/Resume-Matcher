@@ -176,25 +176,32 @@ Rules:
 Resume to parse:
 {resume_text}"""
 
-EXTRACT_KEYWORDS_PROMPT = """Extract job requirements as JSON. Output ONLY the JSON object, no other text.
+EXTRACT_KEYWORDS_PROMPT = """You are an expert ATS (Applicant Tracking System) analyst. Deeply analyze this job description and extract ALL terms that an ATS would score against.
 
-Example format:
+Output ONLY the JSON object, no other text.
+
+Think like an ATS system: extract EVERY term that appears in the JD that would differentiate a matching resume from a non-matching one.
+
 {{
-  "company": "Acme Corp",
-  "role": "Senior Backend Engineer",
-  "required_skills": ["Python", "AWS"],
-  "preferred_skills": ["Kubernetes"],
-  "experience_requirements": ["5+ years"],
-  "education_requirements": ["Bachelor's in CS"],
-  "key_responsibilities": ["Lead team"],
-  "keywords": ["microservices", "agile"],
-  "experience_years": 5,
-  "seniority_level": "senior"
+  "company": "<hiring company name or empty string>",
+  "role": "<exact job title from posting>",
+  "required_skills": ["<every required technical skill, tool, technology, framework, language>"],
+  "preferred_skills": ["<every preferred/nice-to-have skill>"],
+  "ats_critical_keywords": ["<top 20 terms that MUST appear in a resume to pass ATS for this role>"],
+  "action_verbs": ["<action verbs used in JD responsibilities like: developed, designed, implemented, led, managed>"],
+  "responsibilities": ["<key responsibilities as short phrases>"],
+  "industry_terms": ["<domain-specific terms: e.g., microservices, REST API, CI/CD, Agile, SCRUM>"],
+  "soft_skills": ["<soft skills mentioned: communication, teamwork, problem-solving>"],
+  "certifications": ["<required or preferred certifications>"],
+  "experience_requirements": ["<experience requirements as strings>"],
+  "education_requirements": ["<education requirements>"],
+  "experience_years": <integer years required, 0 if not specified>,
+  "seniority_level": "<entry|junior|mid|senior|lead|principal|staff>",
+  "keywords": ["<all other important keywords not captured above>"]
 }}
 
-Extract numeric years (e.g., "5+ years" → 5) and infer seniority level.
-Set "company" to the hiring company name and "role" to the job title exactly as
-written in the posting; use an empty string for either if it is not stated.
+IMPORTANT: Be exhaustive. Miss nothing. An ATS scores every single term that appears in the resume vs the JD.
+For ats_critical_keywords: these are the exact strings that MUST appear in the resume to maximize ATS score.
 
 Job description:
 {job_description}"""

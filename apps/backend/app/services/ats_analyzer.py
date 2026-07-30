@@ -60,11 +60,13 @@ def _parse_analysis(raw: dict, resume_id: str, job_id: str) -> ATSAnalysisResult
         resume_completeness=_safe_int(breakdown_data.get("resume_completeness", 0)),
     )
     # Recalculate overall using our formula to ensure consistency
+    # Weights: keyword_match=40%, skills_alignment=35%, experience=15%, education=5%, completeness=5%
+    # This matches how ATS systems actually prioritize — keywords and skills are 75% of the score
     calculated_overall = int(
-        breakdown.keyword_match * 0.35
-        + breakdown.skills_alignment * 0.30
-        + breakdown.experience_relevance * 0.20
-        + breakdown.education_fit * 0.10
+        breakdown.keyword_match * 0.40
+        + breakdown.skills_alignment * 0.35
+        + breakdown.experience_relevance * 0.15
+        + breakdown.education_fit * 0.05
         + breakdown.resume_completeness * 0.05
     )
     ats_score = ATSScore(
